@@ -29,11 +29,15 @@ export default function SignUpPage() {
     const email = String(fd.get("email") ?? "");
     const password = String(fd.get("password") ?? "");
     setLoading(true);
-    const result = await app.signUpWithCredential({ email, password, displayName });
+    const result = await app.signUpWithCredential({ email, password });
     setLoading(false);
     if (result.status === "error") {
       toast.error(result.error.message ?? "Falha ao criar conta");
       return;
+    }
+    if (displayName) {
+      const user = await app.getUser();
+      await user?.update({ displayName });
     }
     router.push("/onboarding");
     router.refresh();
