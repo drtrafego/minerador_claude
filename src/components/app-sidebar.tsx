@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth/client";
+import { useUser } from "@stackframe/stack";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -54,9 +54,10 @@ export function AppSidebar({
   organizationId: string;
 }) {
   const pathname = usePathname();
+  const user = useUser();
 
   async function handleSignOut() {
-    await authClient.signOut();
+    await user?.signOut();
     window.location.href = "/sign-in";
   }
 

@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/guards";
+import { stackServerApp } from "@/lib/auth/stack";
 
 export default async function Home() {
-  const session = await getSession();
-  if (!session?.user) redirect("/sign-in");
-  if (!session.session?.activeOrganizationId) redirect("/onboarding");
+  const user = await stackServerApp.getUser();
+  if (!user) redirect("/sign-in");
+  if (!user.selectedTeam) redirect("/onboarding");
   redirect("/dashboard");
 }

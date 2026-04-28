@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth/client";
+import { useStackApp } from "@stackframe/stack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
+  const app = useStackApp();
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,10 +28,10 @@ export default function SignInPage() {
     const email = String(fd.get("email") ?? "");
     const password = String(fd.get("password") ?? "");
     setLoading(true);
-    const { error } = await authClient.signIn.email({ email, password });
+    const result = await app.signInWithCredential({ email, password });
     setLoading(false);
-    if (error) {
-      toast.error(error.message ?? "Falha ao entrar");
+    if (result.status === "error") {
+      toast.error(result.error.message ?? "Falha ao entrar");
       return;
     }
     router.push("/dashboard");

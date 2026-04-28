@@ -1,29 +1,27 @@
 import "server-only";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "./server";
+import { stackServerApp } from "./stack";
 
 export async function getSession() {
-  return auth.api.getSession({ headers: await headers() });
+  return stackServerApp.getUser();
 }
 
 export async function requireUser() {
-  const session = await getSession();
-  if (!session?.user) {
-    redirect("/sign-in");
-  }
-  return session;
+  const user = await stackServerApp.getUser();
+  if (!user) redirect("/sign-in");
+  return user;
 }
 
 export async function requireOrg() {
-  const session = await requireUser();
-  const activeOrgId = session.session?.activeOrganizationId;
-  if (!activeOrgId) {
-    redirect("/onboarding");
-  }
+  const user = await requireUser();
+  const team = user.selectedTeam;
+  if (!team) redirect("/onboarding");
   return {
-    user: session.user,
-    session: session.session,
-    organizationId: activeOrgId,
+    user: {
+      id: user.id,
+      name: user.displayName ?? "",
+      email: user.primaryEmail ?? "",
+    },
+    organizationId: team.id,
   };
 }

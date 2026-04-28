@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth/client";
+import { useStackApp } from "@stackframe/stack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,19 +19,20 @@ import {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const app = useStackApp();
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const name = String(fd.get("name") ?? "");
+    const displayName = String(fd.get("name") ?? "");
     const email = String(fd.get("email") ?? "");
     const password = String(fd.get("password") ?? "");
     setLoading(true);
-    const { error } = await authClient.signUp.email({ name, email, password });
+    const result = await app.signUpWithCredential({ email, password, displayName });
     setLoading(false);
-    if (error) {
-      toast.error(error.message ?? "Falha ao criar conta");
+    if (result.status === "error") {
+      toast.error(result.error.message ?? "Falha ao criar conta");
       return;
     }
     router.push("/onboarding");

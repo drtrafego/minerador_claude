@@ -1,18 +1,16 @@
 import { PgBoss } from "pg-boss";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL nao definida");
-}
-
-const schema = process.env.PGBOSS_SCHEMA ?? "pgboss";
-
 const globalForBoss = globalThis as unknown as {
   pgBoss?: PgBoss;
   pgBossReady?: Promise<PgBoss>;
 };
 
 function createBoss(): PgBoss {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL nao definida");
+  }
+  const schema = process.env.PGBOSS_SCHEMA ?? "pgboss";
   return new PgBoss({
     connectionString,
     schema,

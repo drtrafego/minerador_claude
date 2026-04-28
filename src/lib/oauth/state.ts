@@ -2,9 +2,9 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 function getSecret(): string {
-  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.OAUTH_STATE_SECRET;
+  const secret = process.env.STACK_SECRET_SERVER_KEY ?? process.env.OAUTH_STATE_SECRET;
   if (!secret) {
-    throw new Error("BETTER_AUTH_SECRET nao definida (necessaria pra state OAuth)");
+    throw new Error("STACK_SECRET_SERVER_KEY nao definida (necessaria pra state OAuth)");
   }
   return secret;
 }

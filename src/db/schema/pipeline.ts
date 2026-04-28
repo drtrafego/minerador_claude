@@ -9,7 +9,7 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { ms } from "./pg-schema";
-import { organization, user } from "./auth";
+import { organization } from "./auth";
 import { leads } from "./leads";
 
 export const activityTypeEnum = ms.enum("activity_type", [
@@ -57,9 +57,7 @@ export const activities = ms.table(
     description: text("description"),
     dueAt: timestamp("due_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdByUserId: text("created_by_user_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    createdByUserId: text("created_by_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
