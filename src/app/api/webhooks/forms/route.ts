@@ -95,15 +95,9 @@ async function resolveOrganization(orgToken: string): Promise<string | null> {
   const rows = await db
     .select({ id: organization.id })
     .from(organization)
-    .where(eq(organization.slug, orgToken))
-    .limit(1);
-  if (rows.length > 0) return rows[0].id;
-  const byId = await db
-    .select({ id: organization.id })
-    .from(organization)
     .where(eq(organization.id, orgToken))
     .limit(1);
-  return byId[0]?.id ?? null;
+  return rows[0]?.id ?? null;
 }
 
 async function resolveCampaign(orgId: string, token: string | null): Promise<string | null> {
