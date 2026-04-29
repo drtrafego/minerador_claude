@@ -17,13 +17,9 @@ import { Label } from "@/components/ui/label";
 import { createCredential } from "./actions";
 
 const providers = [
-  { value: "anthropic", label: "Anthropic (Claude)" },
-  { value: "apify", label: "Apify" },
-  { value: "google_oauth", label: "Google OAuth (Gmail)" },
-  { value: "google_places", label: "Google Places" },
-  { value: "instagram_session", label: "Instagram Session" },
-  { value: "whatsapp_api", label: "WhatsApp API (Meta Cloud)" },
-  { value: "whatsapp_uazapi", label: "WhatsApp UazAPI (self-hosted)" },
+  { value: "anthropic", label: "Anthropic API Key" },
+  { value: "apify", label: "Apify API Key" },
+  { value: "google_places", label: "Google Places API Key" },
 ];
 
 export function CredentialDialog() {
@@ -47,10 +43,10 @@ export function CredentialDialog() {
       <DialogTrigger render={<Button>Adicionar credential</Button>} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova credential</DialogTitle>
+          <DialogTitle>Adicionar chave de API</DialogTitle>
           <DialogDescription>
-            Todos os valores sao criptografados via pgcrypto antes de ir pro
-            banco
+            Para WhatsApp, Gmail e Instagram use os cards especificos abaixo.
+            Aqui apenas chaves de API simples.
           </DialogDescription>
         </DialogHeader>
         <form action={onSubmit} className="space-y-4">
