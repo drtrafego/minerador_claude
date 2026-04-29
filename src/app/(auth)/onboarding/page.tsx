@@ -29,6 +29,7 @@ function OnboardingContent() {
   const router = useRouter();
   const user = useUser({ or: "redirect" });
   const [loading, setLoading] = useState(false);
+  const [errorLog, setErrorLog] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,15 +40,17 @@ function OnboardingContent() {
       return;
     }
     setLoading(true);
+    setErrorLog(null);
     try {
       const teamId = await createOrganization(name);
       await user.setSelectedTeam(teamId);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[onboarding] erro ao criar organizacao:", err);
-      toast.error(msg || "Falha ao criar organizacao");
+      const msg = err instanceof Error
+        ? `${err.name}: ${err.message}\n${err.stack ?? ""}`
+        : JSON.stringify(err, null, 2);
+      setErrorLog(msg);
       setLoading(false);
     }
   }
@@ -67,10 +70,16 @@ function OnboardingContent() {
             <Input id="name" name="name" placeholder="DR.TRAFEGO" required />
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Criando..." : "Criar e continuar"}
           </Button>
+          {errorLog && (
+            <div className="w-full rounded border border-red-500 bg-red-950 p-3">
+              <p className="mb-1 text-xs font-semibold text-red-400">Erro — copie e cole para o suporte:</p>
+              <pre className="whitespace-pre-wrap break-all text-xs text-red-300 select-all">{errorLog}</pre>
+            </div>
+          )}
         </CardFooter>
       </form>
     </Card>
