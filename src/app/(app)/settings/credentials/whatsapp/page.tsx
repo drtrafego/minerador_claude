@@ -3,6 +3,7 @@ import { loadWhatsAppAPICredential } from "@/lib/clients/whatsapp-api";
 import { loadUazAPICredential, getUazAPIStatus } from "@/lib/clients/whatsapp-uazapi";
 import { db } from "@/lib/db/client";
 import { credentials } from "@/db/schema/credentials";
+import { agentConfigs } from "@/db/schema/agent";
 import { decryptCredential } from "@/lib/crypto/credentials";
 import { and, eq, desc } from "drizzle-orm";
 import {
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { WhatsAppMetaForm, WhatsAppUazAPIForm, PreferredProviderForm } from "./whatsapp-forms";
 
 async function getQRStatus(organizationId: string) {
   const row = await db.query.credentials.findFirst({
@@ -24,42 +26,119 @@ async function getQRStatus(organizationId: string) {
   });
   if (!row) return null;
   try {
-    const data = await decryptCredential<{ phoneNumber: string; savedAt: number }>(
-      row.ciphertext,
-    );
-    return {
-      phoneNumber: data.phoneNumber,
-      savedAt: new Date(data.savedAt),
-    };
+    const data = await decryptCredential<{ phoneNumber: string; savedAt: number }>(row.ciphertext);
+    return { phoneNumber: data.phoneNumber, savedAt: new Date(data.savedAt) };
   } catch {
     return null;
   }
 }
 
+async function getPreferredProvider(organizationId: string): Promise<"auto" | "meta" | "uazapi"> {
+  const row = await db
+    .select({ preferredProvider: agentConfigs.preferredProvider })
+    .from(agentConfigs)
+    .where(eq(agentConfigs.organizationId, organizationId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  return (row?.preferredProvider as "auto" | "meta" | "uazapi") ?? "auto";
+}
+
 export default async function WhatsAppSettingsPage() {
   const { organizationId } = await requireOrg();
 
-  const [qrStatus, apiCred, uazapiCred] = await Promise.all([
+  const [qrStatus, apiCred, uazapiCred, preferredProvider] = await Promise.all([
     getQRStatus(organizationId),
     loadWhatsAppAPICredential(organizationId),
     loadUazAPICredential(organizationId),
+    getPreferredProvider(organizationId),
   ]);
 
-  const uazapiStatus = uazapiCred
-    ? await getUazAPIStatus(uazapiCred.cred)
-    : null;
-
+  const uazapiStatus = uazapiCred ? await getUazAPIStatus(uazapiCred.cred) : null;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://seu-dominio.com";
+  const webhookUrl = `${appUrl}/api/webhooks/whatsapp`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-lg font-semibold">WhatsApp</h2>
+        <h1 className="text-2xl font-semibold">WhatsApp</h1>
         <p className="text-sm text-muted-foreground">
-          Configure os canais de envio via WhatsApp.
+          Configure os canais de envio e recepcao de mensagens via WhatsApp.
         </p>
       </div>
 
+      {/* Provider preferido */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Canal preferido</CardTitle>
+          <CardDescription>
+            Qual API usar para enviar mensagens quando mais de uma estiver configurada.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PreferredProviderForm current={preferredProvider} />
+        </CardContent>
+      </Card>
+
+      {/* Meta WABA */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">WhatsApp Business API (Meta)</CardTitle>
+            <Badge variant={apiCred ? "default" : "secondary"}>
+              {apiCred ? "Configurado" : "Nao configurado"}
+            </Badge>
+          </div>
+          <CardDescription>
+            API oficial da Meta. Requer conta WhatsApp Business verificada no Meta Business Manager.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WhatsAppMetaForm
+            configured={!!apiCred}
+            phoneNumberIdPreview={
+              apiCred
+                ? apiCred.cred.phone_number_id.slice(0, 6) + "..." + apiCred.cred.phone_number_id.slice(-4)
+                : null
+            }
+            webhookUrl={webhookUrl}
+          />
+        </CardContent>
+      </Card>
+
+      {/* UazAPI */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">UazAPI (self-hosted)</CardTitle>
+            <Badge
+              variant={
+                uazapiStatus === "connected" ? "default" : uazapiCred ? "secondary" : "secondary"
+              }
+            >
+              {uazapiStatus === "connected"
+                ? "Conectado"
+                : uazapiStatus === "connecting"
+                  ? "Conectando..."
+                  : uazapiCred
+                    ? "Configurado"
+                    : "Nao configurado"}
+            </Badge>
+          </div>
+          <CardDescription>
+            API REST auto-hospedada (ou cloud UazAPI). Conecte o numero via QR no painel do UazAPI apos salvar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WhatsAppUazAPIForm
+            configured={!!uazapiCred}
+            baseUrl={uazapiCred?.cred.base_url ?? null}
+            status={uazapiStatus}
+            webhookUrl={webhookUrl}
+          />
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp QR Baileys */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -69,140 +148,21 @@ export default async function WhatsAppSettingsPage() {
             </Badge>
           </div>
           <CardDescription>
-            Conecta via QR Code, sem necessidade de conta Business.
+            Conecta via QR Code direto, sem conta Business. Requer acesso ao servidor para escanear.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {qrStatus ? (
             <>
-              <div className="flex gap-2">
-                <span className="text-muted-foreground">Numero:</span>
-                <span>+{qrStatus.phoneNumber}</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="text-muted-foreground">Conectado em:</span>
-                <span>{qrStatus.savedAt.toLocaleString("pt-BR")}</span>
-              </div>
+              <p><span className="text-muted-foreground">Numero: </span>+{qrStatus.phoneNumber}</p>
+              <p><span className="text-muted-foreground">Conectado em: </span>{qrStatus.savedAt.toLocaleString("pt-BR")}</p>
             </>
           ) : (
             <p className="text-muted-foreground">Nenhuma sessao ativa.</p>
           )}
-          <div className="pt-2 border-t">
-            <p className="text-muted-foreground mb-1">Comando de login:</p>
-            <code className="block bg-muted rounded px-3 py-2 text-xs select-all">
-              pnpm whatsapp:login --org {organizationId}
-            </code>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">WhatsApp UazAPI (self-hosted)</CardTitle>
-            <Badge
-              variant={
-                uazapiStatus === "connected"
-                  ? "default"
-                  : uazapiCred
-                    ? "secondary"
-                    : "secondary"
-              }
-            >
-              {uazapiStatus === "connected"
-                ? "Conectado"
-                : uazapiStatus === "connecting"
-                  ? "Conectando"
-                  : uazapiCred
-                    ? "Configurado"
-                    : "Nao configurado"}
-            </Badge>
-          </div>
-          <CardDescription>
-            API REST auto-hospedada (ou cloud UazAPI). Prioridade 2 apos Meta API.
-            Conecta via QR no painel do UazAPI.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {uazapiCred ? (
-            <div className="flex gap-2">
-              <span className="text-muted-foreground">Base URL:</span>
-              <span>{uazapiCred.cred.base_url}</span>
-            </div>
-          ) : (
-            <>
-              <p className="text-muted-foreground">
-                Adicione via botao &quot;Adicionar credential&quot; com provider{" "}
-                <code className="bg-muted px-1 rounded">whatsapp_uazapi</code>:
-              </p>
-              <pre className="bg-muted rounded px-3 py-2 text-xs overflow-x-auto">
-                {JSON.stringify(
-                  {
-                    base_url: "https://focus.uazapi.com",
-                    instance_token: "SEU_INSTANCE_TOKEN",
-                  },
-                  null,
-                  2,
-                )}
-              </pre>
-            </>
-          )}
-          <div className="pt-2 border-t">
-            <p className="text-muted-foreground mb-1">URL do Webhook (UazAPI):</p>
-            <code className="block bg-muted rounded px-3 py-2 text-xs select-all">
-              {appUrl}/api/webhooks/whatsapp
-            </code>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">WhatsApp API Oficial (Meta)</CardTitle>
-            <Badge variant={apiCred ? "default" : "secondary"}>
-              {apiCred ? "Configurado" : "Nao configurado"}
-            </Badge>
-          </div>
-          <CardDescription>
-            Usa a Meta Cloud API. Requer conta WhatsApp Business verificada.
-            Prioritario sobre QR quando configurado.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {apiCred ? (
-            <div className="flex gap-2">
-              <span className="text-muted-foreground">Phone Number ID:</span>
-              <span>
-                {apiCred.cred.phone_number_id.slice(0, 6)}...
-                {apiCred.cred.phone_number_id.slice(-4)}
-              </span>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">
-              Adicione via botao &quot;Adicionar credential&quot; com provider{" "}
-              <code className="bg-muted px-1 rounded">whatsapp_api</code> e
-              payload JSON:
-            </p>
-          )}
-          {!apiCred && (
-            <pre className="bg-muted rounded px-3 py-2 text-xs overflow-x-auto">
-              {JSON.stringify(
-                {
-                  phone_number_id: "SEU_PHONE_NUMBER_ID",
-                  access_token: "SEU_ACCESS_TOKEN",
-                  verify_token: "token_secreto_para_webhook",
-                },
-                null,
-                2,
-              )}
-            </pre>
-          )}
-          <div className="pt-2 border-t">
-            <p className="text-muted-foreground mb-1">URL do Webhook (Meta):</p>
-            <code className="block bg-muted rounded px-3 py-2 text-xs select-all">
-              {appUrl}/api/webhooks/whatsapp
-            </code>
+          <div className="rounded-md bg-muted px-3 py-2 text-xs">
+            <span className="text-muted-foreground">Comando para conectar via terminal: </span>
+            <span className="font-mono select-all">pnpm whatsapp:login --org {organizationId}</span>
           </div>
         </CardContent>
       </Card>

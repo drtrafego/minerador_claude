@@ -22,6 +22,8 @@ import {
 import { CredentialDialog } from "./credential-dialog";
 import { DeleteCredentialButton } from "./delete-credential-button";
 import { GmailConnectButton } from "./gmail-connect";
+import { GoogleOAuthConfigForm } from "./google-oauth-config-form";
+import { loadGoogleOAuthConfigStatus } from "./actions";
 
 export default async function CredentialsPage({
   searchParams,
@@ -45,7 +47,10 @@ export default async function CredentialsPage({
     .where(eq(credentials.organizationId, organizationId))
     .orderBy(desc(credentials.createdAt));
 
-  const gmail = await getGmailPayload(organizationId);
+  const [gmail, googleConfig] = await Promise.all([
+    getGmailPayload(organizationId),
+    loadGoogleOAuthConfigStatus(),
+  ]);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -72,10 +77,26 @@ export default async function CredentialsPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Google OAuth — Aplicativo</CardTitle>
+          <CardDescription>
+            Client ID e Secret do seu projeto no Google Cloud Console.
+            Necessario antes de conectar o Gmail.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GoogleOAuthConfigForm
+            configured={googleConfig.configured}
+            clientIdPreview={googleConfig.clientIdPreview}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Gmail</CardTitle>
           <CardDescription>
-            Conta usada pra enviar outreach de email. Tokens armazenados
-            criptografados como credential google_oauth.
+            Conta usada para enviar outreach de email.
+            Conecte apos configurar o aplicativo Google acima.
           </CardDescription>
         </CardHeader>
         <CardContent>
