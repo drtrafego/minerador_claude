@@ -1,0 +1,50 @@
+services:
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: minerador_worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      SCRAPLING_URL: http://scrapling:8000
+      SCRAPLING_SHARED_SECRET: ${SCRAPLING_SHARED_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      PGBOSS_SCHEMA: pgboss
+    depends_on:
+      scrapling:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  scrapling:
+    build:
+      context: ./scrapling
+      dockerfile: Dockerfile
+    container_name: minerador_scrapling
+    restart: unless-stopped
+    environment:
+      SCRAPLING_SHARED_SECRET: ${SCRAPLING_SHARED_SECRET}
+      SCRAPLING_LOG_LEVEL: info
+      SCRAPLING_HEADLESS: "true"
+      SCRAPLING_MAX_CONCURRENCY: "2"
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/v1/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    shm_size: 1gb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
