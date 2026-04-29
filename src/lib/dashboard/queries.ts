@@ -34,6 +34,7 @@ export async function getFunnelMetrics(
 ): Promise<FunnelMetrics> {
   const { organizationId, campaignId, windowDays = 30 } = params;
   const since = windowStart(windowDays);
+  const sinceIso = since.toISOString();
 
   const campaignFilter = campaignId
     ? sql`AND l.campaign_id = ${campaignId}::uuid`
@@ -51,7 +52,7 @@ export async function getFunnelMetrics(
       COUNT(*) FILTER (WHERE l.qualification_status = 'qualified')::text AS qualified
     FROM "minerador_scrapling"."leads" l
     WHERE l.organization_id = ${organizationId}
-      AND l.created_at >= ${since}
+      AND l.created_at >= ${sinceIso}::timestamptz
       ${campaignFilter}
   `);
 
@@ -66,7 +67,7 @@ export async function getFunnelMetrics(
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.status = 'booked')::text AS booked
     FROM "minerador_scrapling"."outreach_threads" t
     WHERE t.organization_id = ${organizationId}
-      AND t.created_at >= ${since}
+      AND t.created_at >= ${sinceIso}::timestamptz
       ${campaignFilterThreads}
   `);
 
@@ -126,7 +127,7 @@ export async function getMessagesStats(
   params: BaseParams,
 ): Promise<MessagesStats> {
   const { organizationId, campaignId, windowDays = 30 } = params;
-  const since = windowStart(windowDays);
+  const sinceIso = windowStart(windowDays).toISOString();
 
   const campaignFilter = campaignId
     ? sql`AND t.campaign_id = ${campaignId}::uuid`
@@ -144,7 +145,7 @@ export async function getMessagesStats(
     FROM "minerador_scrapling"."outreach_messages" m
     JOIN "minerador_scrapling"."outreach_threads" t ON t.id = m.thread_id
     WHERE m.organization_id = ${organizationId}
-      AND m.created_at >= ${since}
+      AND m.created_at >= ${sinceIso}::timestamptz
       ${campaignFilter}
   `);
 
@@ -223,6 +224,7 @@ export async function getActiveCampaigns(params: {
 }): Promise<ActiveCampaignItem[]> {
   const { organizationId, windowDays = 30, limit = 5 } = params;
   const since = windowStart(windowDays);
+  const sinceIso = since.toISOString();
 
   const leadCounts = await db
     .select({
@@ -249,7 +251,7 @@ export async function getActiveCampaigns(params: {
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.status IN ('replied','booked'))::text AS replied
     FROM "minerador_scrapling"."outreach_threads" t
     WHERE t.organization_id = ${organizationId}
-      AND t.created_at >= ${since}
+      AND t.created_at >= ${sinceIso}::timestamptz
     GROUP BY t.campaign_id
   `);
 
