@@ -1,17 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { credentials } from "@/db/schema/credentials";
-import { encryptCredential } from "@/lib/crypto/credentials";
+import { encryptCredential, decryptCredential } from "@/lib/crypto/credentials";
 import { requireOrg } from "@/lib/auth/guards";
 
 const providerEnum = z.enum([
   "anthropic",
   "apify",
   "google_oauth",
+  "google_oauth_config",
   "google_places",
   "instagram_session",
   "whatsapp_api",
@@ -84,4 +85,55 @@ export async function disconnectGmail() {
     );
   revalidatePath("/settings/credentials");
   return { ok: true };
+}
+
+const googleOAuthConfigSchema = z.object({
+  clientId: z.string().min(10),
+  clientSecret: z.string().min(10),
+});
+
+export async function saveGoogleOAuthConfig(formData: FormData) {
+  const { organizationId } = await requireOrg();
+  const parsed = googleOAuthConfigSchema.safeParse({
+    clientId: formData.get("clientId"),
+    clientSecret: formData.get("clientSecret"),
+  });
+  if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
+
+  const ciphertext = await encryptCredential(parsed.data as unknown as Record<string, unknown>);
+
+  const existing = await db
+    .select({ id: credentials.id })
+    .from(credentials)
+    .where(and(eq(credentials.organizationId, organizationId), eq(credentials.provider, "google_oauth_config")))
+    .orderBy(desc(credentials.createdAt))
+    .limit(1);
+
+  if (existing[0]) {
+    await db.update(credentials).set({ ciphertext, updatedAt: new Date() }).where(eq(credentials.id, existing[0].id));
+  } else {
+    await db.insert(credentials).values({ organizationId, provider: "google_oauth_config", label: "Google OAuth App", ciphertext });
+  }
+
+  revalidatePath("/settings/credentials");
+  return { ok: true };
+}
+
+export async function loadGoogleOAuthConfigStatus() {
+  const { organizationId } = await requireOrg();
+  const row = await db
+    .select()
+    .from(credentials)
+    .where(and(eq(credentials.organizationId, organizationId), eq(credentials.provider, "google_oauth_config")))
+    .orderBy(desc(credentials.createdAt))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+
+  if (!row) return { configured: false, clientIdPreview: null };
+  try {
+    const config = await decryptCredential<{ clientId: string; clientSecret: string }>(row.ciphertext);
+    return { configured: true, clientIdPreview: config.clientId.slice(0, 8) + "..." };
+  } catch {
+    return { configured: false, clientIdPreview: null };
+  }
 }

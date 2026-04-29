@@ -12,6 +12,7 @@ export const credentialProviderEnum = ms.enum("credential_provider", [
   "anthropic",
   "apify",
   "google_oauth",
+  "google_oauth_config",
   "google_places",
   "instagram_session",
   "linkedin_session",

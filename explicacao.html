@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minerador Claude — Como funciona</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      line-height: 1.6;
+    }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      padding: 60px 40px;
+      text-align: center;
+      border-bottom: 1px solid #1e3a5f;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: rgba(99,179,237,0.15);
+      border: 1px solid rgba(99,179,237,0.3);
+      color: #63b3ed;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #63b3ed, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: #94a3b8;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* LAYOUT */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+
+    /* SECTION TITLE */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #63b3ed;
+      margin-bottom: 8px;
+    }
+    .section-heading {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      color: #64748b;
+      font-size: 16px;
+      margin-bottom: 40px;
+    }
+
+    /* FLUXO */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .flow-step {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .flow-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .flow-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .flow-connector {
+      width: 2px;
+      flex: 1;
+      min-height: 32px;
+      background: linear-gradient(180deg, #334155, transparent);
+    }
+    .flow-content {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      flex: 1;
+    }
+    .flow-content h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #f1f5f9;
+    }
+    .flow-content p {
+      color: #64748b;
+      font-size: 14px;
+    }
+    .flow-content .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .tag {
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+    }
+
+    /* MODULOS */
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 40px;
+    }
+    .module-card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .module-card:hover { border-color: #334155; }
+    .module-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .c1::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .c2::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .c3::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .c4::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .c5::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .c6::before { background: linear-gradient(90deg, #ec4899, #f472b6); }
+
+    .module-icon {
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+    .module-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+    .module-card p {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .module-route {
+      display: inline-block;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #63b3ed;
+      background: rgba(99,179,237,0.08);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(99,179,237,0.2);
+    }
+
+    /* CANAIS */
+    .channels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .channel {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 200px;
+    }
+    .channel-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .ch-wa { background: rgba(37,211,102,0.15); }
+    .ch-li { background: rgba(0,119,181,0.15); }
+    .ch-em { background: rgba(251,191,36,0.15); }
+    .ch-ig { background: rgba(225,48,108,0.15); }
+    .channel h4 { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+    .channel p { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    /* STACK */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 40px;
+    }
+    .stack-item {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .stack-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stack-item span { font-size: 13px; color: #94a3b8; }
+    .stack-item strong { font-size: 14px; color: #e2e8f0; display: block; }
+
+    /* SEPARATOR */
+    .sep {
+      border: none;
+      border-top: 1px solid #1e293b;
+      margin: 60px 0;
+    }
+
+    /* STATUS BADGE */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #34d399;
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-top: 6px;
+    }
+    .status::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px;
+      color: #334155;
+      font-size: 13px;
+      border-top: 1px solid #1e293b;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="badge">SaaS Outreach Inteligente</div>
+    <h1>Minerador Claude</h1>
+    <p>Plataforma que encontra leads, qualifica com IA e dispara outreach automatizado em multiplos canais.</p>
+    <div class="status">Producao ativa em minerador.casaldotrafego.com</div>
+  </div>
+
+  <div class="container">
+
+    <!-- FLUXO PRINCIPAL -->
+    <div class="section-title">Fluxo principal</div>
+    <div class="section-heading">Como um lead vira cliente</div>
+    <p class="section-sub">O sistema funciona em 5 etapas automaticas, com intervencao humana so quando necessario.</p>
+
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-circle" style="background:#1e3a5f;color:#63b3ed;">1</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-content">
+          <h3>Mineracao de Leads</h3>
+          <p>O sistema raspa fontes como Google Maps, Instagram, LinkedIn e listas CSV. Cada lead coletado vira um registro com nome, contato, empresa e dados brutos.</p>
+          <div class="tags">
+            <span class="tag">Scrapling (Python)</span>
+            <span class="tag">Google Maps</span>
+            <span class="tag">Instagram</span>
+            <span class="tag">LinkedIn</span>
+            <span class="tag">CSV / Webhook</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-circle" style="background:#2d1b69;color:#a78bfa;">2</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-content">
+          <h3>Qualificacao com IA</h3>
+          <p>Claude analisa cada lead contra o ICP (perfil de cliente ideal) da campanha. Classifica como qualificado, nao qualificado ou pendente e atribui uma nota de 0 a 100.</p>
+          <div class="tags">
+            <span class="tag">Claude Sonnet</span>
+            <span class="tag">ICP configuravel</span>
+            <span class="tag">Nota 0-100</span>
+            <span class="tag">Motivo em texto</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-circle" style="background:#064e3b;color:#34d399;">3</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-content">
+          <h3>Outreach Automatizado</h3>
+          <p>Para cada lead qualificado, o sistema abre um thread no canal configurado (WhatsApp, Instagram DM, LinkedIn, Email) e dispara a mensagem inicial. Follow-ups sao enviados automaticamente com intervalos configurados.</p>
+          <div class="tags">
+            <span class="tag">WhatsApp (Baileys / Meta Cloud / UazAPI)</span>
+            <span class="tag">Instagram DM</span>
+            <span class="tag">LinkedIn</span>
+            <span class="tag">Email</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-circle" style="background:#451a03;color:#fbbf24;">4</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-content">
+          <h3>Agente de Resposta</h3>
+          <p>Quando o lead responde, o agente IA assume a conversa. Ele responde perguntas, supera objecoes e tenta marcar uma reuniao. Se detectar palavras-chave de handoff, transfere para um humano.</p>
+          <div class="tags">
+            <span class="tag">Resposta automatica</span>
+            <span class="tag">Tom configuravel</span>
+            <span class="tag">Max 6 respostas auto</span>
+            <span class="tag">Handoff humano</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-circle" style="background:#4c0519;color:#f472b6;">5</div>
+        </div>
+        <div class="flow-content">
+          <h3>Pipeline e Fechamento</h3>
+          <p>Leads que avancem ficam no Kanban do pipeline. A equipe arrasta entre colunas (contato, reuniao marcada, proposta, ganho, perdido) e registra atividades manualmente ou via automacao.</p>
+          <div class="tags">
+            <span class="tag">Kanban drag-and-drop</span>
+            <span class="tag">Estagios customizaveis</span>
+            <span class="tag">Historico de atividades</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <hr class="sep" />
+
+    <!-- MODULOS -->
+    <div class="section-title">Modulos do sistema</div>
+    <div class="section-heading">O que voce encontra dentro</div>
+    <p class="section-sub">Cada pagina do app tem uma funcao especifica no processo de outreach.</p>
+
+    <div class="modules">
+
+      <div class="module-card c1">
+        <div class="module-icon">📊</div>
+        <h3>Dashboard</h3>
+        <p>Visao geral de leads coletados, qualificados, contatos realizados, respostas recebidas e agendamentos. Grafico de envios dos ultimos 14 dias e campanhas ativas em destaque.</p>
+        <span class="module-route">/dashboard</span>
+      </div>
+
+      <div class="module-card c2">
+        <div class="module-icon">📣</div>
+        <h3>Campanhas</h3>
+        <p>Crie campanhas com nome, nicho, ICP, prompt de qualificacao, copia inicial e sequencia de follow-ups. Defina limite diario de envios e ative ou pause a qualquer momento.</p>
+        <span class="module-route">/campaigns</span>
+      </div>
+
+      <div class="module-card c3">
+        <div class="module-icon">👥</div>
+        <h3>Leads</h3>
+        <p>Lista de todos os leads minerados com status de qualificacao, temperatura (frio, morno, quente), canal de origem e historico de interacoes. Filtre, busque e exporte.</p>
+        <span class="module-route">/leads</span>
+      </div>
+
+      <div class="module-card c4">
+        <div class="module-icon">🗂️</div>
+        <h3>Pipeline</h3>
+        <p>Kanban visual com colunas personalizaveis. Arraste leads entre estagios, registre atividades (ligacao, reuniao, email manual) e veja o valor acumulado por coluna.</p>
+        <span class="module-route">/pipeline</span>
+      </div>
+
+      <div class="module-card c5">
+        <div class="module-icon">💬</div>
+        <h3>Inbox</h3>
+        <p>Central de mensagens de todos os canais. Veja todas as conversas em andamento, responda manualmente quando necessario e acompanhe o historico de cada thread.</p>
+        <span class="module-route">/inbox</span>
+      </div>
+
+      <div class="module-card c6">
+        <div class="module-icon">🤖</div>
+        <h3>Agente IA</h3>
+        <p>Configure o perfil do agente: nome do negocio, tom de voz, prompt de sistema, regras de resposta, palavras de handoff e maximo de respostas automaticas por conversa.</p>
+        <span class="module-route">/settings/agent</span>
+      </div>
+
+    </div>
+
+    <hr class="sep" />
+
+    <!-- CANAIS -->
+    <div class="section-title">Canais de outreach</div>
+    <div class="section-heading">Onde o sistema fala com seus leads</div>
+    <p class="section-sub">O mesmo lead pode ser abordado em multiplos canais com cadencias independentes.</p>
+
+    <div class="channels">
+      <div class="channel">
+        <div class="channel-icon ch-wa">💬</div>
+        <div>
+          <h4>WhatsApp</h4>
+          <p>Baileys (QR), Meta Cloud API ou UazAPI. Tres opcoes de conexao.</p>
+        </div>
+      </div>
+      <div class="channel">
+        <div class="channel-icon ch-ig">📷</div>
+        <div>
+          <h4>Instagram DM</h4>
+          <p>Via Meta Graph API com webhook de recepcao.</p>
+        </div>
+      </div>
+      <div class="channel">
+        <div class="channel-icon ch-li">💼</div>
+        <div>
+          <h4>LinkedIn</h4>
+          <p>Automacao de mensagens via browser controlado.</p>
+        </div>
+      </div>
+      <div class="channel">
+        <div class="channel-icon ch-em">✉️</div>
+        <div>
+          <h4>Email</h4>
+          <p>SMTP ou integracao com provedores como SendGrid.</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="sep" />
+
+    <!-- STACK -->
+    <div class="section-title">Stack tecnica</div>
+    <div class="section-heading">Como o sistema foi construido</div>
+    <p class="section-sub">Tecnologias escolhidas para escalar sem custo fixo alto.</p>
+
+    <div class="stack-grid">
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#3b82f6;"></div>
+        <div><strong>Next.js 15</strong><span>App Router + Server Actions</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#a78bfa;"></div>
+        <div><strong>Stack Auth</strong><span>Autenticacao e times</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#34d399;"></div>
+        <div><strong>Drizzle ORM</strong><span>Queries tipadas em TypeScript</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#60a5fa;"></div>
+        <div><strong>Neon PostgreSQL</strong><span>Banco serverless na nuvem</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#f472b6;"></div>
+        <div><strong>Claude API</strong><span>Qualificacao e agente de chat</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#fbbf24;"></div>
+        <div><strong>Scrapling (Python)</strong><span>Microservico de scraping</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#f97316;"></div>
+        <div><strong>shadcn/ui</strong><span>Componentes e design system</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-dot" style="background:#94a3b8;"></div>
+        <div><strong>Vercel</strong><span>Deploy e CDN global</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Minerador Claude &mdash; DR.TRAFEGO &mdash; 2026
+  </footer>
+
+</body>
+</html>

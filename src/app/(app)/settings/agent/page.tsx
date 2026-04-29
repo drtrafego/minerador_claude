@@ -23,7 +23,6 @@ export default async function AgentSettingsPage() {
     systemPromptOverride: "",
     rules: [] as string[],
     handoffKeywords: ["humano", "atendente", "parar", "stop"],
-    preferredProvider: "auto" as const,
     maxAutoReplies: 6,
     model: "claude-sonnet-4-5",
     temperature: 70,
@@ -32,10 +31,10 @@ export default async function AgentSettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Agente de WhatsApp</h1>
+        <h1 className="text-2xl font-semibold">Agente IA</h1>
         <p className="text-sm text-muted-foreground">
-          Quando ativado, responde automaticamente mensagens inbound usando
-          Claude. Suporta UazAPI e Meta Cloud API.
+          Quando ativado, responde automaticamente mensagens inbound usando Claude.
+          Configure o canal de WhatsApp em Configuracoes &gt; WhatsApp.
         </p>
       </div>
 
@@ -48,8 +47,6 @@ export default async function AgentSettingsPage() {
           systemPromptOverride: initial.systemPromptOverride ?? "",
           rules: (initial.rules as string[]) ?? [],
           handoffKeywords: (initial.handoffKeywords as string[]) ?? [],
-          preferredProvider:
-            (initial.preferredProvider as "auto" | "meta" | "uazapi") ?? "auto",
           maxAutoReplies: initial.maxAutoReplies ?? 6,
           model: initial.model ?? "claude-sonnet-4-5",
           temperature: initial.temperature ?? 70,

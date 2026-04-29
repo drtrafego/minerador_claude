@@ -27,21 +27,55 @@ export class GmailNotConnectedError extends Error {
   }
 }
 
-function getOAuthEnv() {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
-  if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error(
-      "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET e GOOGLE_OAUTH_REDIRECT_URI sao obrigatorios",
-    );
+export type GoogleOAuthAppConfig = {
+  clientId: string;
+  clientSecret: string;
+};
+
+function getRedirectUri(): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+  return `${base}/api/auth/google/callback`;
+}
+
+export async function loadGoogleOAuthAppConfig(
+  organizationId: string,
+): Promise<GoogleOAuthAppConfig | null> {
+  const rows = await db
+    .select()
+    .from(credentials)
+    .where(
+      and(
+        eq(credentials.organizationId, organizationId),
+        eq(credentials.provider, "google_oauth_config"),
+      ),
+    )
+    .orderBy(desc(credentials.createdAt))
+    .limit(1);
+  if (!rows[0]) return null;
+  try {
+    return await decryptCredential<GoogleOAuthAppConfig>(rows[0].ciphertext);
+  } catch {
+    return null;
   }
-  return { clientId, clientSecret, redirectUri };
+}
+
+export async function createOAuthClientForOrg(organizationId: string): Promise<OAuth2Client> {
+  const dbConfig = await loadGoogleOAuthAppConfig(organizationId);
+  const clientId = dbConfig?.clientId ?? process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = dbConfig?.clientSecret ?? process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error("Configure as credenciais do Google OAuth nas configuracoes");
+  }
+  return new google.auth.OAuth2(clientId, clientSecret, getRedirectUri());
 }
 
 export function createOAuthClient(): OAuth2Client {
-  const { clientId, clientSecret, redirectUri } = getOAuthEnv();
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error("Configure as credenciais do Google OAuth nas configuracoes");
+  }
+  return new google.auth.OAuth2(clientId, clientSecret, getRedirectUri());
 }
 
 export const GMAIL_SCOPES = [

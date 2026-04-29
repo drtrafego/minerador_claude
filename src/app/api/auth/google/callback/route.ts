@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { google } from "googleapis";
 import {
-  createOAuthClient,
+  createOAuthClientForOrg,
   upsertGmailCredential,
   type GmailOAuthPayload,
 } from "@/lib/clients/gmail";
@@ -20,7 +20,7 @@ function redirectOk() {
 }
 
 function getBaseUrl(): string {
-  return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? "http://localhost:3000";
 }
 
 export async function GET(req: NextRequest) {
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const oauth = createOAuthClient();
+    const oauth = await createOAuthClientForOrg(state.orgId);
     const { tokens } = await oauth.getToken(code);
 
     if (!tokens.access_token || !tokens.refresh_token) {

@@ -17,7 +17,6 @@ type FormState = {
   systemPromptOverride: string;
   rules: string[];
   handoffKeywords: string[];
-  preferredProvider: "auto" | "meta" | "uazapi";
   maxAutoReplies: number;
   model: string;
   temperature: number;
@@ -208,24 +207,6 @@ export function AgentForm({ initial }: { initial: FormState }) {
       </div>
 
       <div className="grid gap-4 rounded-xl border p-4 md:grid-cols-3">
-        <div>
-          <Label htmlFor="preferredProvider">Provider preferido</Label>
-          <select
-            id="preferredProvider"
-            className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-            value={state.preferredProvider}
-            onChange={(e) =>
-              update(
-                "preferredProvider",
-                e.target.value as FormState["preferredProvider"],
-              )
-            }
-          >
-            <option value="auto">Auto (Meta, entao UazAPI)</option>
-            <option value="meta">Meta Cloud API oficial</option>
-            <option value="uazapi">UazAPI</option>
-          </select>
-        </div>
         <div>
           <Label htmlFor="maxAutoReplies">Max respostas automaticas</Label>
           <Input
