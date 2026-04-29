@@ -65,7 +65,7 @@ export async function listInboxThreads(
     status: string;
   }>(sql`
     SELECT DISTINCT ON (thread_id) thread_id, body, status
-    FROM outreach_messages
+    FROM "minerador_scrapling"."outreach_messages"
     WHERE thread_id = ANY(${threadIds}::uuid[])
     ORDER BY thread_id, created_at DESC
   `);

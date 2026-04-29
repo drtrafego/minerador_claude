@@ -49,7 +49,7 @@ export async function getFunnelMetrics(
     SELECT
       COUNT(*)::text AS total,
       COUNT(*) FILTER (WHERE l.qualification_status = 'qualified')::text AS qualified
-    FROM leads l
+    FROM "minerador_scrapling"."leads" l
     WHERE l.organization_id = ${organizationId}
       AND l.created_at >= ${since}
       ${campaignFilter}
@@ -64,7 +64,7 @@ export async function getFunnelMetrics(
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.last_outbound_at IS NOT NULL)::text AS contacted,
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.status IN ('replied','booked'))::text AS replied,
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.status = 'booked')::text AS booked
-    FROM outreach_threads t
+    FROM "minerador_scrapling"."outreach_threads" t
     WHERE t.organization_id = ${organizationId}
       AND t.created_at >= ${since}
       ${campaignFilterThreads}
@@ -141,8 +141,8 @@ export async function getMessagesStats(
       COUNT(*) FILTER (WHERE m.status = 'sent')::text AS sent,
       COUNT(*) FILTER (WHERE m.status = 'failed')::text AS failed,
       COUNT(*) FILTER (WHERE m.status = 'pending')::text AS pending
-    FROM outreach_messages m
-    JOIN outreach_threads t ON t.id = m.thread_id
+    FROM "minerador_scrapling"."outreach_messages" m
+    JOIN "minerador_scrapling"."outreach_threads" t ON t.id = m.thread_id
     WHERE m.organization_id = ${organizationId}
       AND m.created_at >= ${since}
       ${campaignFilter}
@@ -247,7 +247,7 @@ export async function getActiveCampaigns(params: {
       t.campaign_id,
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.last_outbound_at IS NOT NULL)::text AS contacted,
       COUNT(DISTINCT t.lead_id) FILTER (WHERE t.status IN ('replied','booked'))::text AS replied
-    FROM outreach_threads t
+    FROM "minerador_scrapling"."outreach_threads" t
     WHERE t.organization_id = ${organizationId}
       AND t.created_at >= ${since}
     GROUP BY t.campaign_id
