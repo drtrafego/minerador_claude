@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useUser } from "@stackframe/stack";
-import { createOrgRecord } from "@/lib/actions/onboarding";
+import { createOrganization } from "@/lib/actions/onboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,13 +40,14 @@ function OnboardingContent() {
     }
     setLoading(true);
     try {
-      const team = await user.createTeam({ displayName: name });
-      await user.setSelectedTeam(team);
-      await createOrgRecord(team.id, name);
+      const teamId = await createOrganization(name);
+      await user.setSelectedTeam(teamId);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao criar organizacao");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[onboarding] erro ao criar organizacao:", err);
+      toast.error(msg || "Falha ao criar organizacao");
       setLoading(false);
     }
   }
