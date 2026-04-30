@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "worker": "tsx scripts/worker.ts",
+    "worker": "tsx --require ./scripts/_mock-server-only.cjs scripts/worker.ts",
     "browser:login": "tsx scripts/browser-login.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
