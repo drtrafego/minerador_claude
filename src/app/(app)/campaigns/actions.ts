@@ -43,7 +43,7 @@ const createSchema = z.object({
   initialCopy: z.string().max(5000).optional().default(""),
   followUpSequence: z.array(followUpStepSchema).max(10).optional().default([]),
   smartFollowUp: z.boolean().default(false),
-  source: sourceSchema,
+  sources: z.array(sourceSchema).min(1).max(3),
 });
 
 export type CreateCampaignInput = z.infer<typeof createSchema>;
@@ -56,30 +56,6 @@ export async function createCampaign(input: CreateCampaignInput) {
   }
 
   const data = parsed.data;
-  const sourceConfig: Record<string, unknown> =
-    data.source.type === "google_places"
-      ? {
-          query: data.source.query,
-          location: data.source.location,
-          radius: data.source.radius,
-          maxResults: data.source.maxResults ?? 60,
-        }
-      : data.source.type === "instagram_hashtag"
-        ? {
-            search: data.source.search,
-            maxResults: data.source.maxResults ?? 30,
-          }
-        : {
-            query: data.source.query,
-            maxResults: data.source.maxResults ?? 50,
-          };
-
-  const sourceType =
-    data.source.type === "google_places"
-      ? "google_places"
-      : data.source.type === "instagram_hashtag"
-        ? "instagram_hashtag"
-        : "linkedin_search";
 
   const result = await db.transaction(async (tx) => {
     const [campaign] = await tx
@@ -99,19 +75,34 @@ export async function createCampaign(input: CreateCampaignInput) {
 
     if (!campaign) throw new Error("falha ao criar campanha");
 
-    const [source] = await tx
-      .insert(campaignSources)
-      .values({
+    for (const sourceData of data.sources) {
+      const sourceConfig: Record<string, unknown> =
+        sourceData.type === "google_places"
+          ? {
+              query: sourceData.query,
+              location: sourceData.location,
+              radius: sourceData.radius,
+              maxResults: sourceData.maxResults ?? 60,
+            }
+          : sourceData.type === "instagram_hashtag"
+            ? {
+                search: sourceData.search,
+                maxResults: sourceData.maxResults ?? 30,
+              }
+            : {
+                query: sourceData.query,
+                maxResults: sourceData.maxResults ?? 50,
+              };
+
+      await tx.insert(campaignSources).values({
         organizationId,
         campaignId: campaign.id,
-        type: sourceType,
+        type: sourceData.type,
         config: sourceConfig,
-      })
-      .returning({ id: campaignSources.id });
+      });
+    }
 
-    if (!source) throw new Error("falha ao criar source");
-
-    return { campaignId: campaign.id, sourceId: source.id };
+    return { campaignId: campaign.id };
   });
 
   revalidatePath("/campaigns");

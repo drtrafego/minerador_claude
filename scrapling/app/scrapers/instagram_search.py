@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from urllib.parse import quote_plus
 
@@ -39,7 +40,9 @@ async def _discover_usernames(term: str, search_type: str, max_results: int) -> 
     cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
 
     try:
-        page = StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=30000)
+        page = await asyncio.to_thread(
+            lambda: StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=30000)
+        )
     except Exception as exc:
         raise UpstreamError(f"instagram search falhou: {exc}") from exc
 
@@ -83,7 +86,9 @@ async def _fetch_profile(username: str) -> IgLead | None:
     cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
 
     try:
-        page = StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=20000)
+        page = await asyncio.to_thread(
+            lambda: StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=20000)
+        )
     except Exception:
         return None
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from urllib.parse import quote_plus
 
 from ..errors import BlockedError, UpstreamError
@@ -9,6 +10,18 @@ from ..schemas import PlaceLead, PlaceLocation
 
 PHONE_RE = re.compile(r"(\+?\d[\d\s().-]{7,}\d)")
 URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+
+
+def _scroll_feed_sync(page_obj):
+    try:
+        for _ in range(10):
+            page_obj.evaluate(
+                "() => { const f = document.querySelector('div[role=feed]'); if (f) f.scrollBy(0, f.clientHeight); }"
+            )
+            time.sleep(1.2)
+    except Exception:
+        return page_obj
+    return page_obj
 
 
 async def search(query: str, location: str | None, max_results: int) -> list[PlaceLead]:
@@ -23,41 +36,28 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
         except ImportError as exc:
             raise UpstreamError("scrapling DynamicFetcher indisponivel", code="deps") from exc
 
-    async def _run() -> list[PlaceLead]:
-        try:
-            page = DynamicFetcher.fetch(
+    try:
+        page = await asyncio.to_thread(
+            lambda: DynamicFetcher.fetch(
                 url,
                 headless=True,
                 network_idle=True,
                 timeout=60000,
                 wait_selector="div[role='feed']",
-                page_action=_scroll_feed,
+                page_action=_scroll_feed_sync,
             )
-        except Exception as exc:
-            raise UpstreamError(f"falha ao abrir google maps: {exc}") from exc
+        )
+    except Exception as exc:
+        raise UpstreamError(f"falha ao abrir google maps: {exc}") from exc
 
-        status = getattr(page, "status", None)
-        if status and status >= 400:
-            if status in (429, 503):
-                raise BlockedError("google maps rate limit")
-            raise UpstreamError(f"google maps http {status}")
+    status = getattr(page, "status", None)
+    if status and status >= 400:
+        if status in (429, 503):
+            raise BlockedError("google maps rate limit")
+        raise UpstreamError(f"google maps http {status}")
 
-        leads = _parse_cards(page, max_results)
-        return leads[:max_results]
-
-    return await _run()
-
-
-async def _scroll_feed(page_obj):
-    try:
-        for _ in range(10):
-            await page_obj.evaluate(
-                "() => { const f = document.querySelector('div[role=feed]'); if (f) f.scrollBy(0, f.clientHeight); }"
-            )
-            await asyncio.sleep(1.2)
-    except Exception:
-        return page_obj
-    return page_obj
+    leads = _parse_cards(page, max_results)
+    return leads[:max_results]
 
 
 def _parse_cards(page, max_results: int) -> list[PlaceLead]:

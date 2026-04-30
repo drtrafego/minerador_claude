@@ -22,6 +22,12 @@ import { DEFAULT_FOLLOW_UP_SEQUENCE } from "@/db/schema/campaigns";
 
 type SourceType = "google_places" | "instagram_hashtag" | "linkedin_search";
 
+const MODELS = [
+  { value: "claude-haiku-4-5", label: "Haiku 4.5 — rapido e economico" },
+  { value: "claude-sonnet-4-5", label: "Sonnet 4.5 — equilibrado (recomendado)" },
+  { value: "claude-opus-4-5", label: "Opus 4.5 — mais poderoso" },
+] as const;
+
 type FollowUpStepDraft = {
   dayOffset: string;
   copy: string;
@@ -31,13 +37,15 @@ type State = {
   step: 1 | 2 | 3 | 4;
   name: string;
   niche: string;
-  sourceType: SourceType;
-  query: string;
-  location: string;
-  radius: string;
+  activeSources: SourceType[];
+  googleQuery: string;
+  googleLocation: string;
+  googleRadius: string;
+  googleMaxResults: string;
   igSearch: string;
+  igMaxResults: string;
   linkedinQuery: string;
-  maxResults: string;
+  linkedinMaxResults: string;
   prompt: string;
   model: string;
   initialCopy: string;
@@ -80,13 +88,15 @@ export function CampaignWizard() {
     step: 1,
     name: "",
     niche: "",
-    sourceType: "google_places",
-    query: "",
-    location: "",
-    radius: "5000",
+    activeSources: ["google_places"],
+    googleQuery: "",
+    googleLocation: "",
+    googleRadius: "5000",
+    googleMaxResults: "60",
     igSearch: "",
+    igMaxResults: "30",
     linkedinQuery: "",
-    maxResults: "60",
+    linkedinMaxResults: "50",
     prompt: "",
     model: "claude-sonnet-4-5",
     initialCopy: "",
@@ -98,29 +108,39 @@ export function CampaignWizard() {
     setState((s) => ({ ...s, [key]: value }));
   }
 
+  function toggleSource(source: SourceType, checked: boolean) {
+    setState((s) => ({
+      ...s,
+      activeSources: checked
+        ? [...s.activeSources, source]
+        : s.activeSources.filter((x) => x !== source),
+    }));
+  }
+
   function next() {
     if (state.step === 1) {
       if (!state.name.trim() || !state.niche.trim()) {
         toast.error("preencha nome e nicho");
         return;
       }
+      if (state.activeSources.length === 0) {
+        toast.error("selecione ao menos uma fonte");
+        return;
+      }
       setState((s) => ({ ...s, step: 2 }));
       return;
     }
     if (state.step === 2) {
-      if (state.sourceType === "google_places" && !state.query.trim()) {
-        toast.error("preencha a query");
+      if (state.activeSources.includes("google_places") && !state.googleQuery.trim()) {
+        toast.error("preencha a query do Google Maps");
         return;
       }
-      if (state.sourceType === "instagram_hashtag" && !state.igSearch.trim()) {
-        toast.error("preencha a busca do instagram");
+      if (state.activeSources.includes("instagram_hashtag") && !state.igSearch.trim()) {
+        toast.error("preencha o termo de busca do Instagram");
         return;
       }
-      if (
-        state.sourceType === "linkedin_search" &&
-        !state.linkedinQuery.trim()
-      ) {
-        toast.error("preencha a query do linkedin");
+      if (state.activeSources.includes("linkedin_search") && !state.linkedinQuery.trim()) {
+        toast.error("preencha a query do LinkedIn");
         return;
       }
       setState((s) => ({
@@ -186,30 +206,31 @@ export function CampaignWizard() {
       return;
     }
 
-    const source: CreateCampaignInput["source"] =
-      state.sourceType === "google_places"
-        ? {
-            type: "google_places",
-            query: state.query,
-            location: state.location || undefined,
-            radius: state.radius ? Number(state.radius) : undefined,
-            maxResults: state.maxResults ? Number(state.maxResults) : undefined,
-          }
-        : state.sourceType === "instagram_hashtag"
-          ? {
-              type: "instagram_hashtag",
-              search: state.igSearch,
-              maxResults: state.maxResults
-                ? Number(state.maxResults)
-                : undefined,
-            }
-          : {
-              type: "linkedin_search",
-              query: state.linkedinQuery,
-              maxResults: state.maxResults
-                ? Number(state.maxResults)
-                : undefined,
-            };
+    const sources: CreateCampaignInput["sources"] = [];
+
+    if (state.activeSources.includes("google_places")) {
+      sources.push({
+        type: "google_places",
+        query: state.googleQuery,
+        location: state.googleLocation || undefined,
+        radius: state.googleRadius ? Number(state.googleRadius) : undefined,
+        maxResults: state.googleMaxResults ? Number(state.googleMaxResults) : undefined,
+      });
+    }
+    if (state.activeSources.includes("instagram_hashtag")) {
+      sources.push({
+        type: "instagram_hashtag",
+        search: state.igSearch,
+        maxResults: state.igMaxResults ? Number(state.igMaxResults) : undefined,
+      });
+    }
+    if (state.activeSources.includes("linkedin_search")) {
+      sources.push({
+        type: "linkedin_search",
+        query: state.linkedinQuery,
+        maxResults: state.linkedinMaxResults ? Number(state.linkedinMaxResults) : undefined,
+      });
+    }
 
     const followUpSequence = state.followUpSequence
       .filter((s) => s.copy.trim().length > 0)
@@ -226,7 +247,7 @@ export function CampaignWizard() {
       initialCopy: state.initialCopy.trim(),
       followUpSequence,
       smartFollowUp: state.smartFollowUp,
-      source,
+      sources,
     };
 
     startTransition(async () => {
@@ -249,8 +270,8 @@ export function CampaignWizard() {
         <CardTitle>Passo {state.step} de 4</CardTitle>
         <CardDescription>
           {state.step === 1 && "Identifique a campanha"}
-          {state.step === 2 && "Escolha a fonte dos leads"}
-          {state.step === 3 && "Configure o prompt do Claude"}
+          {state.step === 2 && "Configure as fontes de leads"}
+          {state.step === 3 && "Configure o agente de qualificacao"}
           {state.step === 4 && "Sequencia de follow up do outreach"}
         </CardDescription>
       </CardHeader>
@@ -276,144 +297,151 @@ export function CampaignWizard() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Fonte</Label>
-              <div className="flex gap-3">
-                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-input p-3 hover:border-ring">
-                  <input
-                    type="radio"
-                    name="sourceType"
-                    value="google_places"
-                    checked={state.sourceType === "google_places"}
-                    onChange={() => update("sourceType", "google_places")}
-                  />
-                  <span className="text-sm">Google Maps</span>
-                </label>
-                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-input p-3 hover:border-ring">
-                  <input
-                    type="radio"
-                    name="sourceType"
-                    value="instagram_hashtag"
-                    checked={state.sourceType === "instagram_hashtag"}
-                    onChange={() => update("sourceType", "instagram_hashtag")}
-                  />
-                  <span className="text-sm">Instagram</span>
-                </label>
-                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-input p-3 hover:border-ring">
-                  <input
-                    type="radio"
-                    name="sourceType"
-                    value="linkedin_search"
-                    checked={state.sourceType === "linkedin_search"}
-                    onChange={() => update("sourceType", "linkedin_search")}
-                  />
-                  <span className="text-sm">LinkedIn</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {state.step === 2 && state.sourceType === "google_places" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="query">Query de busca</Label>
-              <Input
-                id="query"
-                value={state.query}
-                onChange={(e) => update("query", e.target.value)}
-                placeholder="hamburgueria artesanal"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="location">Cidade ou regiao</Label>
-              <Input
-                id="location"
-                value={state.location}
-                onChange={(e) => update("location", e.target.value)}
-                placeholder="Sao Paulo, SP"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="radius">Raio (metros)</Label>
-                <Input
-                  id="radius"
-                  value={state.radius}
-                  onChange={(e) => update("radius", e.target.value)}
-                  type="number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="maxResults">Max resultados</Label>
-                <Input
-                  id="maxResults"
-                  value={state.maxResults}
-                  onChange={(e) => update("maxResults", e.target.value)}
-                  type="number"
-                />
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {state.step === 2 && state.sourceType === "instagram_hashtag" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="igSearch">Termo de busca no Instagram</Label>
-              <Input
-                id="igSearch"
-                value={state.igSearch}
-                onChange={(e) => update("igSearch", e.target.value)}
-                placeholder="hamburgueria artesanal"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxResults">Max perfis</Label>
-              <Input
-                id="maxResults"
-                value={state.maxResults}
-                onChange={(e) => update("maxResults", e.target.value)}
-                type="number"
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {state.step === 2 && state.sourceType === "linkedin_search" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="linkedinQuery">Query de busca no LinkedIn</Label>
-              <Input
-                id="linkedinQuery"
-                value={state.linkedinQuery}
-                onChange={(e) => update("linkedinQuery", e.target.value)}
-                placeholder="head of growth startup brasil"
-              />
+              <Label>Fontes de mineracao</Label>
               <p className="text-xs text-muted-foreground">
-                Use termos livres. Ex: cargo, segmento, regiao.
+                Selecione uma ou mais fontes simultaneas
               </p>
+              <div className="flex flex-col gap-2">
+                {(
+                  [
+                    { value: "google_places" as SourceType, label: "Google Maps" },
+                    { value: "instagram_hashtag" as SourceType, label: "Instagram" },
+                    { value: "linkedin_search" as SourceType, label: "LinkedIn" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <label
+                    key={value}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-input p-3 hover:border-ring"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-input"
+                      checked={state.activeSources.includes(value)}
+                      onChange={(e) => toggleSource(value, e.target.checked)}
+                    />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxResults">Max perfis</Label>
-              <Input
-                id="maxResults"
-                value={state.maxResults}
-                onChange={(e) => update("maxResults", e.target.value)}
-                type="number"
-              />
-            </div>
+          </div>
+        ) : null}
+
+        {state.step === 2 ? (
+          <div className="space-y-6">
+            {state.activeSources.includes("google_places") && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">Google Maps</p>
+                <div className="space-y-2">
+                  <Label htmlFor="googleQuery">Query de busca</Label>
+                  <Input
+                    id="googleQuery"
+                    value={state.googleQuery}
+                    onChange={(e) => update("googleQuery", e.target.value)}
+                    placeholder="hamburgueria artesanal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="googleLocation">Cidade ou regiao</Label>
+                  <Input
+                    id="googleLocation"
+                    value={state.googleLocation}
+                    onChange={(e) => update("googleLocation", e.target.value)}
+                    placeholder="Sao Paulo, SP"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="googleRadius">Raio (metros)</Label>
+                    <Input
+                      id="googleRadius"
+                      value={state.googleRadius}
+                      onChange={(e) => update("googleRadius", e.target.value)}
+                      type="number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="googleMaxResults">Max resultados</Label>
+                    <Input
+                      id="googleMaxResults"
+                      value={state.googleMaxResults}
+                      onChange={(e) => update("googleMaxResults", e.target.value)}
+                      type="number"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {state.activeSources.includes("instagram_hashtag") && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">Instagram</p>
+                <div className="space-y-2">
+                  <Label htmlFor="igSearch">Termo de busca</Label>
+                  <Input
+                    id="igSearch"
+                    value={state.igSearch}
+                    onChange={(e) => update("igSearch", e.target.value)}
+                    placeholder="hamburgueria artesanal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="igMaxResults">Max perfis</Label>
+                  <Input
+                    id="igMaxResults"
+                    value={state.igMaxResults}
+                    onChange={(e) => update("igMaxResults", e.target.value)}
+                    type="number"
+                  />
+                </div>
+              </div>
+            )}
+
+            {state.activeSources.includes("linkedin_search") && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">LinkedIn</p>
+                <div className="space-y-2">
+                  <Label htmlFor="linkedinQuery">Query de busca</Label>
+                  <Input
+                    id="linkedinQuery"
+                    value={state.linkedinQuery}
+                    onChange={(e) => update("linkedinQuery", e.target.value)}
+                    placeholder="head of growth startup brasil"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use termos livres. Ex: cargo, segmento, regiao.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="linkedinMaxResults">Max perfis</Label>
+                  <Input
+                    id="linkedinMaxResults"
+                    value={state.linkedinMaxResults}
+                    onChange={(e) => update("linkedinMaxResults", e.target.value)}
+                    type="number"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 
         {state.step === 3 ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="model">Modelo Claude</Label>
-              <Input
+              <Label htmlFor="model">Modelo de IA</Label>
+              <select
                 id="model"
                 value={state.model}
                 onChange={(e) => update("model", e.target.value)}
-              />
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="prompt">Prompt de qualificacao</Label>
