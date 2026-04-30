@@ -60,6 +60,35 @@ export async function createCredential(formData: FormData) {
   return { ok: true };
 }
 
+const apiKeySchema = z.object({
+  provider: providerEnum,
+  label: z.string().min(1).max(100),
+  apiKey: z.string().min(1),
+});
+
+export async function saveApiKey(formData: FormData) {
+  const { organizationId } = await requireOrg();
+
+  const parsed = apiKeySchema.safeParse({
+    provider: formData.get("provider"),
+    label: formData.get("label"),
+    apiKey: formData.get("apiKey"),
+  });
+  if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
+
+  const ciphertext = await encryptCredential({ apiKey: parsed.data.apiKey });
+
+  await db.insert(credentials).values({
+    organizationId,
+    provider: parsed.data.provider,
+    label: parsed.data.label,
+    ciphertext,
+  });
+
+  revalidatePath("/settings/credentials");
+  return { ok: true };
+}
+
 export async function deleteCredential(formData: FormData) {
   const { organizationId } = await requireOrg();
   const id = String(formData.get("id") ?? "");
