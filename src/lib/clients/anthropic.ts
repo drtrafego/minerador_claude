@@ -242,6 +242,18 @@ export async function generateSmartFollowUp(
 
 export type AgentMessage = { role: "user" | "assistant"; content: string };
 
+export type AgentTool = {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+};
+
+export type AgentToolUse = {
+  toolName: string;
+  toolUseId: string;
+  input: Record<string, unknown>;
+};
+
 export type AgentReplyInput = {
   organizationId: string;
   systemPrompt: string;
@@ -249,10 +261,12 @@ export type AgentReplyInput = {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  tools?: AgentTool[];
 };
 
 export type AgentReplyResult = {
   text: string;
+  toolUses: AgentToolUse[];
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
@@ -268,15 +282,27 @@ export async function generateAgentReply(
 
   const response = await client.messages.create({
     model,
-    max_tokens: input.maxTokens ?? 600,
+    max_tokens: input.maxTokens ?? 800,
     temperature: input.temperature ?? 0.6,
     system: input.systemPrompt,
     messages: input.messages,
+    ...(input.tools && input.tools.length > 0
+      ? { tools: input.tools as Parameters<typeof client.messages.create>[0]["tools"] }
+      : {}),
   });
 
   const parts: string[] = [];
+  const toolUses: AgentToolUse[] = [];
+
   for (const block of response.content) {
     if (block.type === "text") parts.push(block.text);
+    if (block.type === "tool_use") {
+      toolUses.push({
+        toolName: block.name,
+        toolUseId: block.id,
+        input: block.input as Record<string, unknown>,
+      });
+    }
   }
   const text = parts.join("").trim();
 
@@ -284,6 +310,7 @@ export async function generateAgentReply(
   const outputTokens = response.usage.output_tokens;
   return {
     text,
+    toolUses,
     inputTokens,
     outputTokens,
     costUsd: computeCostUsd(input.model, inputTokens, outputTokens),

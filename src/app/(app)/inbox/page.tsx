@@ -61,9 +61,9 @@ export default async function InboxPage() {
                         {STATUS_LABEL[t.status] ?? t.status}
                       </Badge>
                       {(t as { botPaused?: boolean }).botPaused ? (
-                        <User className="h-3 w-3 text-orange-500" title="Atendimento humano" />
+                        <User className="h-3 w-3 text-orange-500" />
                       ) : (
-                        <Bot className="h-3 w-3 text-blue-500" title="Bot ativo" />
+                        <Bot className="h-3 w-3 text-blue-500" />
                       )}
                     </div>
                     {t.campaignName ? (

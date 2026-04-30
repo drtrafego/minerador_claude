@@ -11,7 +11,13 @@ import { events } from "@/db/schema/events";
 import {
   generateAgentReply,
   type AgentMessage,
+  type AgentTool,
 } from "@/lib/clients/anthropic";
+import {
+  checkCalendarAvailability,
+  createCalendarEvent,
+  CalendarNotConfiguredError,
+} from "@/lib/clients/google-calendar";
 import {
   loadWhatsAppAPICredential,
   sendWhatsAppAPIMessage,
@@ -28,6 +34,57 @@ import type { AgentReplyPayload } from "@/lib/queue/types";
 
 const HISTORY_LIMIT = 20;
 
+const CALENDAR_TOOLS: AgentTool[] = [
+  {
+    name: "check_availability",
+    description: "Verifica horarios livres na agenda para uma data especifica. Use antes de propor um horario ao lead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: {
+          type: "string",
+          description: "Data no formato YYYY-MM-DD. Ex: 2025-06-15",
+        },
+        duration_minutes: {
+          type: "number",
+          description: "Duracao da reuniao em minutos. Padrao: 30",
+        },
+      },
+      required: ["date"],
+    },
+  },
+  {
+    name: "book_meeting",
+    description: "Cria um evento no Google Calendar e envia convite. Use apenas apos o lead confirmar o horario.",
+    input_schema: {
+      type: "object",
+      properties: {
+        summary: {
+          type: "string",
+          description: "Titulo do evento. Ex: Conversa com Joao - Casal do Trafego",
+        },
+        start_time: {
+          type: "string",
+          description: "Horario de inicio em ISO 8601. Ex: 2025-06-15T14:00:00-03:00",
+        },
+        end_time: {
+          type: "string",
+          description: "Horario de termino em ISO 8601. Ex: 2025-06-15T14:30:00-03:00",
+        },
+        attendee_email: {
+          type: "string",
+          description: "Email do lead (opcional)",
+        },
+        notes: {
+          type: "string",
+          description: "Notas sobre o lead ou contexto da reuniao (opcional)",
+        },
+      },
+      required: ["summary", "start_time", "end_time"],
+    },
+  },
+];
+
 function buildSystemPrompt(opts: {
   businessName: string | null;
   businessInfo: string | null;
@@ -36,6 +93,7 @@ function buildSystemPrompt(opts: {
   override: string | null;
   campaignName: string | null;
   niche: string | null;
+  calendarEnabled: boolean;
   lead: {
     displayName: string;
     city: string | null;
@@ -86,6 +144,20 @@ function buildSystemPrompt(opts: {
         opts.rules.map((r) => `- ${r}`).join("\n"),
     );
   }
+
+  if (opts.calendarEnabled) {
+    sections.push(
+      [
+        "Agendamento via Google Calendar:",
+        "- Quando o lead demonstrar interesse em agendar uma conversa ou reuniao, use a ferramenta check_availability para verificar horarios livres.",
+        "- Pergunte a data de preferencia antes de checar disponibilidade.",
+        "- Apos confirmar o horario com o lead, use book_meeting para criar o evento.",
+        "- Confirme o agendamento enviando a data, hora e link do Google Meet (se disponivel).",
+        "- Use horario de Brasilia (UTC-3) nas mensagens para o lead.",
+      ].join("\n"),
+    );
+  }
+
   return sections.join("\n\n");
 }
 
@@ -272,6 +344,14 @@ export async function handleAgentReply(payload: AgentReplyPayload): Promise<void
     content: m.body ?? "",
   }));
 
+  let calendarEnabled = false;
+  try {
+    await checkCalendarAvailability(organizationId, new Date().toISOString().split("T")[0], 30);
+    calendarEnabled = true;
+  } catch (err) {
+    if (!(err instanceof CalendarNotConfiguredError)) calendarEnabled = false;
+  }
+
   const systemPrompt = buildSystemPrompt({
     businessName: config.businessName,
     businessInfo: config.businessInfo,
@@ -280,6 +360,7 @@ export async function handleAgentReply(payload: AgentReplyPayload): Promise<void
     override: config.systemPromptOverride,
     campaignName: campaign?.name ?? null,
     niche: campaign?.niche ?? null,
+    calendarEnabled,
     lead: {
       displayName: lead.displayName,
       city: lead.city,
@@ -296,11 +377,94 @@ export async function handleAgentReply(payload: AgentReplyPayload): Promise<void
       messages,
       model: config.model,
       temperature: config.temperature / 100,
-      maxTokens: 600,
+      maxTokens: 800,
+      tools: calendarEnabled ? CALENDAR_TOOLS : [],
     });
   } catch (err) {
     console.error(`[agent.reply] falha ao gerar resposta no thread ${threadId}`, err);
     throw err;
+  }
+
+  // Executar ferramentas se Claude solicitou
+  if (reply.toolUses.length > 0 && calendarEnabled) {
+    const toolResults: Array<{ toolUseId: string; content: string }> = [];
+
+    for (const toolUse of reply.toolUses) {
+      if (toolUse.toolName === "check_availability") {
+        try {
+          const date = String(toolUse.input.date ?? new Date().toISOString().split("T")[0]);
+          const duration = Number(toolUse.input.duration_minutes ?? 30);
+          const slots = await checkCalendarAvailability(organizationId, date, duration);
+          const formatted = slots.length === 0
+            ? "Nenhum horario disponivel nesta data."
+            : slots.map((s) => {
+                const start = new Date(s.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+                const end = new Date(s.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+                return `${start} - ${end}`;
+              }).join(", ");
+          toolResults.push({ toolUseId: toolUse.toolUseId, content: formatted });
+        } catch {
+          toolResults.push({ toolUseId: toolUse.toolUseId, content: "Erro ao verificar disponibilidade." });
+        }
+      }
+
+      if (toolUse.toolName === "book_meeting") {
+        try {
+          const event = await createCalendarEvent(organizationId, {
+            summary: String(toolUse.input.summary ?? "Reuniao"),
+            description: toolUse.input.notes ? String(toolUse.input.notes) : undefined,
+            startTime: String(toolUse.input.start_time),
+            endTime: String(toolUse.input.end_time),
+            attendeeEmail: toolUse.input.attendee_email ? String(toolUse.input.attendee_email) : undefined,
+            attendeeName: lead.displayName,
+          });
+          const info = [
+            `Evento criado: ${event.summary}`,
+            `Inicio: ${new Date(event.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+            event.meetLink ? `Link Meet: ${event.meetLink}` : "",
+          ].filter(Boolean).join("\n");
+          toolResults.push({ toolUseId: toolUse.toolUseId, content: info });
+        } catch {
+          toolResults.push({ toolUseId: toolUse.toolUseId, content: "Erro ao criar evento no calendario." });
+        }
+      }
+    }
+
+    // Segunda chamada ao Claude com resultados das ferramentas
+    if (toolResults.length > 0) {
+      const toolResultMessages: AgentMessage[] = [
+        ...messages,
+        {
+          role: "assistant",
+          content: reply.text || JSON.stringify(reply.toolUses.map((t) => ({ type: "tool_use", id: t.toolUseId, name: t.toolName, input: t.input }))),
+        },
+      ];
+
+      const toolResultContent = toolResults.map((r) => ({
+        type: "tool_result" as const,
+        tool_use_id: r.toolUseId,
+        content: r.content,
+      }));
+
+      try {
+        const followUp = await generateAgentReply({
+          organizationId,
+          systemPrompt,
+          messages: [
+            ...toolResultMessages,
+            { role: "user", content: JSON.stringify(toolResultContent) },
+          ],
+          model: config.model,
+          temperature: config.temperature / 100,
+          maxTokens: 600,
+        });
+        if (followUp.text) {
+          reply = { ...reply, text: followUp.text };
+        }
+      } catch (err) {
+        console.error(`[agent.reply] falha na segunda chamada apos tool use no thread ${threadId}`, err);
+      }
+    }
   }
 
   const replyText = reply.text.trim();
