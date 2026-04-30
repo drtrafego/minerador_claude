@@ -13,4 +13,7 @@ COPY drizzle ./drizzle
 
 ENV NODE_ENV=production
 
+# server-only e um guard para Next.js browser bundle — nao faz sentido no worker
+RUN echo "module.exports = {}" > /app/node_modules/server-only/index.js
+
 CMD ["pnpm", "worker"]

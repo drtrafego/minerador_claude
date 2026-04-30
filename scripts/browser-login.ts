@@ -44,16 +44,19 @@ const CONFIGS: Record<ProviderArg, Config> = {
   },
 };
 
-function parseArgs(): { provider: ProviderArg; organizationId: string } {
+function parseArgs(): { provider: ProviderArg; organizationId: string; username?: string } {
   const args = process.argv.slice(2);
   let provider: string | null = null;
   let organizationId: string | null = null;
+  let username: string | null = null;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--provider") {
       provider = args[++i] ?? null;
     } else if (arg === "--org") {
       organizationId = args[++i] ?? null;
+    } else if (arg === "--username") {
+      username = args[++i] ?? null;
     }
   }
   if (!provider || (provider !== "instagram" && provider !== "linkedin")) {
@@ -62,7 +65,7 @@ function parseArgs(): { provider: ProviderArg; organizationId: string } {
   if (!organizationId) {
     throw new Error("use: --org <organizationId>");
   }
-  return { provider: provider as ProviderArg, organizationId };
+  return { provider: provider as ProviderArg, organizationId, username: username ?? undefined };
 }
 
 async function waitForLogin(config: Config, contextCookies: () => Promise<unknown[]>) {
@@ -86,7 +89,7 @@ async function waitForLogin(config: Config, contextCookies: () => Promise<unknow
 }
 
 async function main() {
-  const { provider, organizationId } = parseArgs();
+  const { provider, organizationId, username: usernameArg } = parseArgs();
   const config = CONFIGS[provider];
 
   console.log(
@@ -113,11 +116,14 @@ async function main() {
 
     const storageState = await context.storageState();
 
-    const rl = createInterface({ input, output });
-    const profileUsername = (
-      await rl.question("informe o profileUsername: ")
-    ).trim();
-    rl.close();
+    let profileUsername: string;
+    if (usernameArg) {
+      profileUsername = usernameArg.trim();
+    } else {
+      const rl = createInterface({ input, output });
+      profileUsername = (await rl.question("informe o profileUsername: ")).trim();
+      rl.close();
+    }
     if (!profileUsername) {
       throw new Error("profileUsername vazio");
     }
