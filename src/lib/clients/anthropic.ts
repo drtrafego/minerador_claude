@@ -113,13 +113,31 @@ function buildLeadsBlock(leads: LeadForQualification[]): string {
     .join("\n\n---\n\n");
 }
 
+function makeClient(apiKey: string): Anthropic {
+  if (apiKey.startsWith("sk-or-")) {
+    return new Anthropic({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: { "HTTP-Referer": "https://minerador.casaldotrafego.com" },
+    });
+  }
+  return new Anthropic({ apiKey });
+}
+
+function resolveModel(apiKey: string, model: string): string {
+  if (apiKey.startsWith("sk-or-")) {
+    return model.includes("/") ? model : `anthropic/${model}`;
+  }
+  return model;
+}
+
 export async function qualifyLeadsBatch(opts: {
   apiKey: string;
   leads: LeadForQualification[];
   prompt: string;
   model?: string;
 }): Promise<QualificationResult> {
-  const model = opts.model ?? "claude-sonnet-4-5";
+  const model = resolveModel(opts.apiKey, opts.model ?? "claude-sonnet-4-5");
 
   if (opts.leads.length === 0) {
     return {
@@ -129,7 +147,7 @@ export async function qualifyLeadsBatch(opts: {
     };
   }
 
-  const client = new Anthropic({ apiKey: opts.apiKey });
+  const client = makeClient(opts.apiKey);
 
   const systemPrompt = [
     "Voce e um SDR experiente que avalia leads contra um ICP especifico.",
@@ -203,7 +221,7 @@ export async function generateSmartFollowUp(
   prompt: string,
 ): Promise<string> {
   const cred = await getOrgCredential(organizationId, "anthropic");
-  const client = new Anthropic({ apiKey: cred.apiKey });
+  const client = makeClient(cred.apiKey);
 
   const response = await client.messages.create({
     model: SMART_FOLLOWUP_MODEL,
@@ -245,10 +263,11 @@ export async function generateAgentReply(
   input: AgentReplyInput,
 ): Promise<AgentReplyResult> {
   const cred = await getOrgCredential(input.organizationId, "anthropic");
-  const client = new Anthropic({ apiKey: cred.apiKey });
+  const client = makeClient(cred.apiKey);
+  const model = resolveModel(cred.apiKey, input.model);
 
   const response = await client.messages.create({
-    model: input.model,
+    model,
     max_tokens: input.maxTokens ?? 600,
     temperature: input.temperature ?? 0.6,
     system: input.systemPrompt,
