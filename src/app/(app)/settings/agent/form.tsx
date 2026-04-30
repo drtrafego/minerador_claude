@@ -103,7 +103,7 @@ export function AgentForm({ initial }: { initial: FormState }) {
             id="businessName"
             value={state.businessName}
             onChange={(e) => update("businessName", e.target.value)}
-            placeholder="DR.TRAFEGO"
+            placeholder="Casal do Tráfego"
           />
         </div>
         <div>

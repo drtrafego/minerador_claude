@@ -34,19 +34,19 @@ export type FollowUpStep = {
 export const DEFAULT_FOLLOW_UP_SEQUENCE: FollowUpStep[] = [
   {
     dayOffset: 3,
-    copy: "Oi {{first_name}}, meu email anterior pode ter sumido no meio da bagunca da caixa de entrada. So queria saber se faz sentido a gente trocar duas ideias rapidas sobre trafego pago pra {{niche}} em {{city}}. Sem compromisso, so um papo curto. Se nao for a hora, me avisa que eu sumo. Abraco, Equipe DR.TRAFEGO",
+    copy: "Oi {{first_name}}, meu email anterior pode ter sumido no meio da bagunca da caixa de entrada. So queria saber se faz sentido a gente trocar duas ideias rapidas sobre trafego pago pra {{niche}} em {{city}}. Sem compromisso, so um papo curto. Se nao for a hora, me avisa que eu sumo. Abraco, Casal do Tráfego",
   },
   {
     dayOffset: 7,
-    copy: "{{first_name}}, voltando aqui. Semana passada um cliente de {{niche}} (parecido com a {{name}}) tinha o mesmo problema que vejo em {{city}}: leads caros e sem qualificacao. Ajustamos a oferta no anuncio e o custo por lead caiu pela metade em 9 dias. Nao e magica, e metodo. Topa eu te mostrar como? Equipe DR.TRAFEGO",
+    copy: "{{first_name}}, voltando aqui. Semana passada um cliente de {{niche}} (parecido com a {{name}}) tinha o mesmo problema que vejo em {{city}}: leads caros e sem qualificacao. Ajustamos a oferta no anuncio e o custo por lead caiu pela metade em 9 dias. Nao e magica, e metodo. Topa eu te mostrar como? Casal do Tráfego",
   },
   {
     dayOffset: 12,
-    copy: "Oi {{first_name}}, pensando no que te falei do case. A real e que a maioria em {{niche}} nao tem problema de trafego, tem problema de oferta. Trafego bom em oferta fraca so acelera o prejuizo. Se a {{name}} ja anuncia e sente que o dinheiro evapora, o furo pode estar ai. Posso te apontar onde? Equipe DR.TRAFEGO",
+    copy: "Oi {{first_name}}, pensando no que te falei do case. A real e que a maioria em {{niche}} nao tem problema de trafego, tem problema de oferta. Trafego bom em oferta fraca so acelera o prejuizo. Se a {{name}} ja anuncia e sente que o dinheiro evapora, o furo pode estar ai. Posso te apontar onde? Casal do Tráfego",
   },
   {
     dayOffset: 20,
-    copy: "{{first_name}}, esse vai ser meu ultimo contato por aqui, prometo. Mandei quatro emails, reforcei, contei um caso, mostrei um angulo novo. Se o timing nao bate agora, tudo bem, a vida segue. Se um dia a {{name}} quiser revisar trafego pra {{niche}} em {{city}}, e so responder essa linha aqui. Abraco, Equipe DR.TRAFEGO",
+    copy: "{{first_name}}, esse vai ser meu ultimo contato por aqui, prometo. Mandei quatro emails, reforcei, contei um caso, mostrei um angulo novo. Se o timing nao bate agora, tudo bem, a vida segue. Se um dia a {{name}} quiser revisar trafego pra {{niche}} em {{city}}, e so responder essa linha aqui. Abraco, Casal do Tráfego",
   },
 ];
 

@@ -67,7 +67,7 @@ function OnboardingContent() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome da organizacao</Label>
-            <Input id="name" name="name" placeholder="DR.TRAFEGO" required />
+            <Input id="name" name="name" placeholder="Casal do Tráfego" required />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
