@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -84,9 +84,7 @@ export default async function CredentialsPage({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">WhatsApp</h2>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/settings/credentials/whatsapp">Gerenciar</Link>
-          </Button>
+          <Link href="/settings/credentials/whatsapp" className={buttonVariants({ variant: "outline", size: "sm" })}>Gerenciar</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Card>
@@ -163,9 +161,7 @@ export default async function CredentialsPage({
               Conectados via automacao de navegador. Requer acesso ao servidor.
             </p>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/settings/credentials/browser">Gerenciar</Link>
-          </Button>
+          <Link href="/settings/credentials/browser" className={buttonVariants({ variant: "outline", size: "sm" })}>Gerenciar</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Card>
