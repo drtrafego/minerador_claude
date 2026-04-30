@@ -177,6 +177,11 @@ export async function handleAgentReply(payload: AgentReplyPayload): Promise<void
     return;
   }
 
+  if (thread.botPaused) {
+    console.log(`[agent.reply] bot pausado (atendimento humano ativo) no thread ${threadId}`);
+    return;
+  }
+
   if (thread.channel !== "whatsapp") {
     console.log(`[agent.reply] canal ${thread.channel} nao suportado`);
     return;

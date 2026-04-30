@@ -5,6 +5,7 @@ import {
   uuid,
   jsonb,
   integer,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { ms } from "./pg-schema";
@@ -72,6 +73,7 @@ export const outreachThreads = ms.table(
     lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
     externalThreadId: text("external_thread_id"),
     followupCount: integer("followup_count").notNull().default(0),
+    botPaused: boolean("bot_paused").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

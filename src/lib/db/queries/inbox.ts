@@ -94,6 +94,7 @@ export type InboxThreadDetail = {
     createdAt: Date;
     lastOutboundAt: Date | null;
     lastInboundAt: Date | null;
+    botPaused: boolean;
   };
   lead: {
     id: string;
@@ -174,6 +175,7 @@ export async function getInboxThread(
       createdAt: row.thread.createdAt,
       lastOutboundAt: row.thread.lastOutboundAt,
       lastInboundAt: row.thread.lastInboundAt,
+      botPaused: row.thread.botPaused,
     },
     lead: {
       id: row.lead.id,

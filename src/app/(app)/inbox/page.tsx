@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Bot, User } from "lucide-react";
 import { requireOrg } from "@/lib/auth/guards";
 import { listInboxThreads } from "@/lib/db/queries/inbox";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,11 @@ export default async function InboxPage() {
                       <Badge variant="secondary" className="text-xs">
                         {STATUS_LABEL[t.status] ?? t.status}
                       </Badge>
+                      {(t as { botPaused?: boolean }).botPaused ? (
+                        <User className="h-3 w-3 text-orange-500" title="Atendimento humano" />
+                      ) : (
+                        <Bot className="h-3 w-3 text-blue-500" title="Bot ativo" />
+                      )}
                     </div>
                     {t.campaignName ? (
                       <p className="text-xs text-muted-foreground">
