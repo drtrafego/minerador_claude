@@ -119,8 +119,8 @@ export function CampaignWizard() {
 
   function next() {
     if (state.step === 1) {
-      if (!state.name.trim() || !state.niche.trim()) {
-        toast.error("preencha nome e nicho");
+      if (!state.name.trim()) {
+        toast.error("preencha o nome da campanha");
         return;
       }
       if (state.activeSources.length === 0) {
@@ -143,11 +143,15 @@ export function CampaignWizard() {
         toast.error("preencha a query do LinkedIn");
         return;
       }
-      setState((s) => ({
-        ...s,
-        step: 3,
-        prompt: s.prompt || DEFAULT_PROMPT(s.niche),
-      }));
+      setState((s) => {
+        const derivedNiche = s.googleQuery || s.igSearch || s.linkedinQuery;
+        return {
+          ...s,
+          step: 3,
+          niche: s.niche || derivedNiche,
+          prompt: s.prompt || DEFAULT_PROMPT(derivedNiche),
+        };
+      });
       return;
     }
     if (state.step === 3) {
@@ -158,7 +162,7 @@ export function CampaignWizard() {
       setState((s) => ({
         ...s,
         step: 4,
-        initialCopy: s.initialCopy || DEFAULT_INITIAL_COPY(s.niche),
+        initialCopy: s.initialCopy || DEFAULT_INITIAL_COPY(s.googleQuery || s.igSearch || s.linkedinQuery),
       }));
       return;
     }
@@ -285,15 +289,6 @@ export function CampaignWizard() {
                 value={state.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Ex: Restaurantes Sao Paulo Q2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="niche">Nicho</Label>
-              <Input
-                id="niche"
-                value={state.niche}
-                onChange={(e) => update("niche", e.target.value)}
-                placeholder="Ex: hamburgueria artesanal"
               />
             </div>
             <div className="space-y-2">

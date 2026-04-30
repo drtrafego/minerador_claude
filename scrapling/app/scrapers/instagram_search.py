@@ -39,10 +39,16 @@ async def _discover_usernames(term: str, search_type: str, max_results: int) -> 
     headers = {"User-Agent": "Mozilla/5.0", "X-IG-App-ID": "936619743392459", "Accept": "application/json"}
     cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
 
+    def _fetch():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=30000)
+        finally:
+            new_loop.close()
+
     try:
-        page = await asyncio.to_thread(
-            lambda: StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=30000)
-        )
+        page = await asyncio.to_thread(_fetch)
     except Exception as exc:
         raise UpstreamError(f"instagram search falhou: {exc}") from exc
 
@@ -85,10 +91,16 @@ async def _fetch_profile(username: str) -> IgLead | None:
     }
     cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
 
+    def _fetch_profile_sync():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=20000)
+        finally:
+            new_loop.close()
+
     try:
-        page = await asyncio.to_thread(
-            lambda: StealthyFetcher.fetch(url, headers=headers, cookies=cookies, headless=True, timeout=20000)
-        )
+        page = await asyncio.to_thread(_fetch_profile_sync)
     except Exception:
         return None
 

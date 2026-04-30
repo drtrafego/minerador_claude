@@ -36,9 +36,11 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
         except ImportError as exc:
             raise UpstreamError("scrapling DynamicFetcher indisponivel", code="deps") from exc
 
-    try:
-        page = await asyncio.to_thread(
-            lambda: DynamicFetcher.fetch(
+    def _fetch():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return DynamicFetcher.fetch(
                 url,
                 headless=True,
                 network_idle=True,
@@ -46,7 +48,11 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
                 wait_selector="div[role='feed']",
                 page_action=_scroll_feed_sync,
             )
-        )
+        finally:
+            new_loop.close()
+
+    try:
+        page = await asyncio.to_thread(_fetch)
     except Exception as exc:
         raise UpstreamError(f"falha ao abrir google maps: {exc}") from exc
 
