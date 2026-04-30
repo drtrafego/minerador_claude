@@ -56,7 +56,7 @@ export function ChatActions({
     startToggle(async () => {
       const res = await toggleBotPause(threadId, next);
       if ("error" in res) {
-        toast.error(res.error);
+        toast.error(String(res.error));
         return;
       }
       setPaused(next);
