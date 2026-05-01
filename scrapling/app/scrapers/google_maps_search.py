@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-import time
 from urllib.parse import quote_plus
 
 from ..errors import BlockedError, UpstreamError
@@ -12,16 +11,15 @@ PHONE_RE = re.compile(r"(\+?\d[\d\s().-]{7,}\d)")
 URL_RE = re.compile(r"https?://[^\s\"'<>]+")
 
 
-def _scroll_feed_sync(page_obj):
+async def _scroll_feed(page) -> None:
     try:
         for _ in range(10):
-            page_obj.evaluate(
+            await page.evaluate(
                 "() => { const f = document.querySelector('div[role=feed]'); if (f) f.scrollBy(0, f.clientHeight); }"
             )
-            time.sleep(1.2)
+            await asyncio.sleep(1.2)
     except Exception:
-        return page_obj
-    return page_obj
+        pass
 
 
 async def search(query: str, location: str | None, max_results: int) -> list[PlaceLead]:
@@ -29,30 +27,19 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
     url = f"https://www.google.com/maps/search/{quote_plus(full_query)}"
 
     try:
-        from scrapling.fetchers import PlayWrightFetcher as DynamicFetcher
-    except ImportError:
-        try:
-            from scrapling.fetchers import DynamicFetcher
-        except ImportError as exc:
-            raise UpstreamError("scrapling DynamicFetcher indisponivel", code="deps") from exc
+        from scrapling.fetchers import AsyncDynamicSession
+    except ImportError as exc:
+        raise UpstreamError("scrapling AsyncDynamicSession indisponivel", code="deps") from exc
 
-    def _fetch():
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-        try:
-            return DynamicFetcher.fetch(
+    try:
+        async with AsyncDynamicSession(headless=True) as session:
+            page = await session.fetch(
                 url,
-                headless=True,
                 network_idle=True,
                 timeout=60000,
                 wait_selector="div[role='feed']",
-                page_action=_scroll_feed_sync,
+                page_action=_scroll_feed,
             )
-        finally:
-            new_loop.close()
-
-    try:
-        page = await asyncio.to_thread(_fetch)
     except Exception as exc:
         raise UpstreamError(f"falha ao abrir google maps: {exc}") from exc
 

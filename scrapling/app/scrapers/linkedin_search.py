@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import re
 from urllib.parse import quote_plus, urlparse
 
@@ -21,16 +20,8 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
         search_query = f'site:linkedin.com/in "{query}" "{location}"'
     google_url = f"https://www.google.com/search?q={quote_plus(search_query)}&num={min(max_results * 2, 100)}"
 
-    def _fetch():
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-        try:
-            return StealthyFetcher.fetch(google_url, headless=True, solve_cloudflare=True, wait_selector="div", network_idle=True)
-        finally:
-            new_loop.close()
-
     try:
-        page = await asyncio.to_thread(_fetch)
+        page = await StealthyFetcher.async_fetch(google_url, headless=True, solve_cloudflare=True, wait_selector="div", network_idle=True)
     except Exception as exc:
         raise UpstreamError(f"falha ao buscar no google: {exc}") from exc
 
@@ -82,16 +73,8 @@ async def _enrich(url: str) -> dict | None:
         from scrapling.fetchers import StealthyFetcher
     except ImportError:
         return None
-    def _fetch_enrich():
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-        try:
-            return StealthyFetcher.fetch(url, headless=True, solve_cloudflare=False, timeout=15000)
-        finally:
-            new_loop.close()
-
     try:
-        page = await asyncio.to_thread(_fetch_enrich)
+        page = await StealthyFetcher.async_fetch(url, headless=True, solve_cloudflare=False, timeout=15000)
     except Exception:
         return None
     if getattr(page, "status", 0) >= 400:
