@@ -7,7 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 COPY requirements.txt .
-RUN pip install --upgrade pip uv && uv pip install --system -r requirements.txt
+RUN pip install --upgrade pip uv && \
+    uv pip install --system "scrapling[all]==0.4.7" && \
+    uv pip install --system -r requirements.txt
 
 COPY app ./app
 COPY entrypoint.sh /entrypoint.sh
