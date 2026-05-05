@@ -1,20 +1,23 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from urllib.parse import quote_plus
+
+import httpx
 
 from ..config import settings
 from ..errors import BlockedError, UpstreamError
 from ..schemas import IgLead
 
+_IG_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+    "X-IG-App-ID": "936619743392459",
+    "Accept": "application/json",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+}
+
 
 async def search(search_term: str, search_type: str, max_results: int) -> list[IgLead]:
-    try:
-        from scrapling.fetchers import StealthyFetcher
-    except ImportError as exc:
-        raise UpstreamError("scrapling StealthyFetcher indisponivel", code="deps") from exc
-
     usernames = await _discover_usernames(search_term, search_type, max_results)
     if not usernames:
         return []
@@ -28,29 +31,28 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
 
 
 async def _discover_usernames(term: str, search_type: str, max_results: int) -> list[str]:
-    from scrapling.fetchers import StealthyFetcher
-
     if search_type == "hashtag":
         tag = term.lstrip("#")
         url = f"https://www.instagram.com/explore/tags/{quote_plus(tag)}/"
     else:
         url = f"https://www.instagram.com/web/search/topsearch/?query={quote_plus(term)}"
 
-    headers = {"User-Agent": "Mozilla/5.0", "X-IG-App-ID": "936619743392459", "Accept": "application/json"}
-    cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
+    cookies = {}
+    if settings.ig_session_cookie:
+        cookies["sessionid"] = settings.ig_session_cookie
 
     try:
-        page = await StealthyFetcher.async_fetch(url, headers=headers, cookies=cookies, headless=True, timeout=30000)
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url, headers=_IG_HEADERS, cookies=cookies)
     except Exception as exc:
         raise UpstreamError(f"instagram search falhou: {exc}") from exc
 
-    status = getattr(page, "status", None)
-    if status in (429, 403):
+    if resp.status_code in (429, 403):
         raise BlockedError("instagram rate limit/block")
-    if status and status >= 400:
-        raise UpstreamError(f"instagram http {status}")
+    if resp.status_code >= 400:
+        raise UpstreamError(f"instagram http {resp.status_code}")
 
-    body = getattr(page, "body", None) or str(page)
+    body = resp.text
     usernames: list[str] = []
     try:
         data = json.loads(body)
@@ -73,27 +75,22 @@ async def _discover_usernames(term: str, search_type: str, max_results: int) -> 
 
 
 async def _fetch_profile(username: str) -> IgLead | None:
-    from scrapling.fetchers import StealthyFetcher
-
     url = f"https://i.instagram.com/api/v1/users/web_profile_info/?username={quote_plus(username)}"
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "X-IG-App-ID": "936619743392459",
-        "Accept": "application/json",
-    }
-    cookies = {"sessionid": settings.ig_session_cookie} if settings.ig_session_cookie else None
+    cookies = {}
+    if settings.ig_session_cookie:
+        cookies["sessionid"] = settings.ig_session_cookie
 
     try:
-        page = await StealthyFetcher.async_fetch(url, headers=headers, cookies=cookies, headless=True, timeout=20000)
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            resp = await client.get(url, headers=_IG_HEADERS, cookies=cookies)
     except Exception:
         return None
 
-    status = getattr(page, "status", None)
-    if not status or status >= 400:
+    if resp.status_code >= 400:
         return None
 
     try:
-        data = json.loads(getattr(page, "body", None) or str(page))
+        data = json.loads(resp.text)
     except json.JSONDecodeError:
         return None
 

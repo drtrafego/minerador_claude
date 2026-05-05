@@ -27,19 +27,19 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
     url = f"https://www.google.com/maps/search/{quote_plus(full_query)}"
 
     try:
-        from scrapling.fetchers import AsyncDynamicSession
+        from scrapling.fetchers import StealthyFetcher
     except ImportError as exc:
-        raise UpstreamError("scrapling AsyncDynamicSession indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling StealthyFetcher indisponivel", code="deps") from exc
 
     try:
-        async with AsyncDynamicSession(headless=True) as session:
-            page = await session.fetch(
-                url,
-                network_idle=True,
-                timeout=60000,
-                wait_selector="div[role='feed']",
-                page_action=_scroll_feed,
-            )
+        page = await StealthyFetcher.async_fetch(
+            url,
+            headless=True,
+            network_idle=True,
+            timeout=60000,
+            wait_selector="div[role='feed']",
+            page_action=_scroll_feed,
+        )
     except Exception as exc:
         raise UpstreamError(f"falha ao abrir google maps: {exc}") from exc
 

@@ -21,7 +21,7 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
     google_url = f"https://www.google.com/search?q={quote_plus(search_query)}&num={min(max_results * 2, 100)}"
 
     try:
-        page = await StealthyFetcher.async_fetch(google_url, headless=True, solve_cloudflare=True, wait_selector="div", network_idle=True)
+        page = await StealthyFetcher.async_fetch(google_url, headless=True, wait_selector="div", network_idle=True)
     except Exception as exc:
         raise UpstreamError(f"falha ao buscar no google: {exc}") from exc
 
@@ -74,7 +74,7 @@ async def _enrich(url: str) -> dict | None:
     except ImportError:
         return None
     try:
-        page = await StealthyFetcher.async_fetch(url, headless=True, solve_cloudflare=False, timeout=15000)
+        page = await StealthyFetcher.async_fetch(url, headless=True, timeout=15000)
     except Exception:
         return None
     if getattr(page, "status", 0) >= 400:
