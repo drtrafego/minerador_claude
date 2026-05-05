@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.47.0-jammy
+FROM ghcr.io/d4vinci/scrapling:latest
 
 WORKDIR /app
 
@@ -7,14 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 COPY requirements.txt .
-RUN pip install --upgrade pip uv && \
-    uv pip install --system "scrapling[all]==0.4.7" && \
-    uv pip install --system -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY app ./app
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

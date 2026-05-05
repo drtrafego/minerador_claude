@@ -3,5 +3,4 @@ uvicorn[standard]==0.32.0
 pydantic==2.9.2
 pydantic-settings==2.6.1
 httpx==0.27.2
-scrapling[all]==0.4.7
 python-json-logger==2.0.7
