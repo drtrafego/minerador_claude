@@ -11,9 +11,9 @@ LINKEDIN_URL_RE = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za
 
 async def search(query: str, max_results: int, location: str | None = None) -> list[LinkedInProfile]:
     try:
-        from scrapling.fetchers import PlayWrightFetcher
+        from scrapling.fetchers import AsyncStealthySession
     except ImportError as exc:
-        raise UpstreamError("scrapling PlayWrightFetcher indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling AsyncStealthySession indisponivel", code="deps") from exc
 
     search_query = f'site:linkedin.com/in "{query}"'
     if location:
@@ -21,7 +21,13 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
     google_url = f"https://www.google.com/search?q={quote_plus(search_query)}&num={min(max_results * 2, 100)}"
 
     try:
-        page = await PlayWrightFetcher.async_fetch(google_url, headless=True, wait_selector="div", network_idle=True)
+        async with AsyncStealthySession(headless=True) as session:
+            page = await session.fetch(
+                google_url,
+                solve_cloudflare=True,
+                wait_selector="div",
+                network_idle=True,
+            )
     except Exception as exc:
         raise UpstreamError(f"falha ao buscar no google: {exc}") from exc
 
@@ -70,11 +76,12 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
 
 async def _enrich(url: str) -> dict | None:
     try:
-        from scrapling.fetchers import PlayWrightFetcher
+        from scrapling.fetchers import AsyncStealthySession
     except ImportError:
         return None
     try:
-        page = await PlayWrightFetcher.async_fetch(url, headless=True, timeout=15000)
+        async with AsyncStealthySession(headless=True) as session:
+            page = await session.fetch(url, solve_cloudflare=False, timeout=15000)
     except Exception:
         return None
     if getattr(page, "status", 0) >= 400:
@@ -86,7 +93,7 @@ async def _enrich(url: str) -> dict | None:
         return None
     if not title or "linkedin" not in title.lower():
         return None
-    parts = [p.strip() for p in re.split(r"[\|\-\u2013\u2014]", title) if p.strip()]
+    parts = [p.strip() for p in re.split(r"[\|\-–—]", title) if p.strip()]
     full_name = parts[0] if parts else None
     headline = parts[1] if len(parts) > 1 else None
     return {"full_name": full_name, "headline": headline, "location": None, "company": None}

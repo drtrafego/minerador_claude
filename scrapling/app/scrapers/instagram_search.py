@@ -13,9 +13,9 @@ IG_SKIP = {"p", "explore", "accounts", "reel", "reels", "stories", "tv", "direct
 
 async def search(search_term: str, search_type: str, max_results: int) -> list[IgLead]:
     try:
-        from scrapling.fetchers import PlayWrightFetcher
+        from scrapling.fetchers import AsyncStealthySession
     except ImportError as exc:
-        raise UpstreamError("scrapling PlayWrightFetcher indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling AsyncStealthySession indisponivel", code="deps") from exc
 
     if search_type == "hashtag":
         dork = f'site:instagram.com/explore/tags "{search_term.lstrip("#")}"'
@@ -25,12 +25,13 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
     google_url = f"https://www.google.com/search?q={quote_plus(dork)}&num={min(max_results * 3, 50)}"
 
     try:
-        page = await PlayWrightFetcher.async_fetch(
-            google_url,
-            headless=True,
-            wait_selector="div#search",
-            network_idle=True,
-        )
+        async with AsyncStealthySession(headless=True) as session:
+            page = await session.fetch(
+                google_url,
+                solve_cloudflare=True,
+                wait_selector="div#search",
+                network_idle=True,
+            )
     except Exception as exc:
         raise UpstreamError(f"instagram dork falhou: {exc}") from exc
 
