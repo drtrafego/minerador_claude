@@ -27,12 +27,12 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
     url = f"https://www.google.com/maps/search/{quote_plus(full_query)}"
 
     try:
-        from scrapling.fetchers import StealthyFetcher
+        from scrapling.fetchers import PlayWrightFetcher
     except ImportError as exc:
-        raise UpstreamError("scrapling StealthyFetcher indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling PlayWrightFetcher indisponivel", code="deps") from exc
 
     try:
-        page = await StealthyFetcher.async_fetch(
+        page = await PlayWrightFetcher.async_fetch(
             url,
             headless=True,
             network_idle=True,

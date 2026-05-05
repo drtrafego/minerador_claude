@@ -11,9 +11,9 @@ LINKEDIN_URL_RE = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za
 
 async def search(query: str, max_results: int, location: str | None = None) -> list[LinkedInProfile]:
     try:
-        from scrapling.fetchers import StealthyFetcher
+        from scrapling.fetchers import PlayWrightFetcher
     except ImportError as exc:
-        raise UpstreamError("scrapling StealthyFetcher indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling PlayWrightFetcher indisponivel", code="deps") from exc
 
     search_query = f'site:linkedin.com/in "{query}"'
     if location:
@@ -21,7 +21,7 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
     google_url = f"https://www.google.com/search?q={quote_plus(search_query)}&num={min(max_results * 2, 100)}"
 
     try:
-        page = await StealthyFetcher.async_fetch(google_url, headless=True, wait_selector="div", network_idle=True)
+        page = await PlayWrightFetcher.async_fetch(google_url, headless=True, wait_selector="div", network_idle=True)
     except Exception as exc:
         raise UpstreamError(f"falha ao buscar no google: {exc}") from exc
 
@@ -70,11 +70,11 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
 
 async def _enrich(url: str) -> dict | None:
     try:
-        from scrapling.fetchers import StealthyFetcher
+        from scrapling.fetchers import PlayWrightFetcher
     except ImportError:
         return None
     try:
-        page = await StealthyFetcher.async_fetch(url, headless=True, timeout=15000)
+        page = await PlayWrightFetcher.async_fetch(url, headless=True, timeout=15000)
     except Exception:
         return None
     if getattr(page, "status", 0) >= 400:

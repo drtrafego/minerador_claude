@@ -13,9 +13,9 @@ IG_SKIP = {"p", "explore", "accounts", "reel", "reels", "stories", "tv", "direct
 
 async def search(search_term: str, search_type: str, max_results: int) -> list[IgLead]:
     try:
-        from scrapling.fetchers import StealthyFetcher
+        from scrapling.fetchers import PlayWrightFetcher
     except ImportError as exc:
-        raise UpstreamError("scrapling StealthyFetcher indisponivel", code="deps") from exc
+        raise UpstreamError("scrapling PlayWrightFetcher indisponivel", code="deps") from exc
 
     if search_type == "hashtag":
         dork = f'site:instagram.com/explore/tags "{search_term.lstrip("#")}"'
@@ -25,7 +25,7 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
     google_url = f"https://www.google.com/search?q={quote_plus(dork)}&num={min(max_results * 3, 50)}"
 
     try:
-        page = await StealthyFetcher.async_fetch(
+        page = await PlayWrightFetcher.async_fetch(
             google_url,
             headless=True,
             wait_selector="div#search",
