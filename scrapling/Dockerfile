@@ -4,11 +4,13 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    CAMOUFOX_PATH=/root/.cache/camoufox
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt && \
-    scrapling install
+    python -m camoufox fetch && \
+    python -m playwright install chromium
 
 COPY app ./app
 
