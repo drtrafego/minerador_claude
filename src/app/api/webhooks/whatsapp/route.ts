@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db/client";
 import { credentials } from "@/db/schema/credentials";
 import { outreachThreads, outreachMessages } from "@/db/schema/outreach";
+import { leads } from "@/db/schema/leads";
 import { agentConfigs } from "@/db/schema/agent";
 import { decryptCredential } from "@/lib/crypto/credentials";
 import { eq, and } from "drizzle-orm";
@@ -31,14 +32,56 @@ async function processInboundMessage(params: {
 }) {
   const { organizationId, from, body, messageId } = params;
 
-  const thread = await db.query.outreachThreads.findFirst({
+  let thread = await db.query.outreachThreads.findFirst({
     where: and(
       eq(outreachThreads.organizationId, organizationId),
       eq(outreachThreads.externalThreadId, from),
     ),
   });
 
-  if (!thread) return;
+  if (!thread) {
+    const [lead] = await db
+      .insert(leads)
+      .values({
+        organizationId,
+        source: "manual",
+        externalId: from,
+        displayName: from,
+        phone: from,
+        rawData: { inbound: true },
+        qualificationStatus: "pending",
+      })
+      .onConflictDoNothing()
+      .returning({ id: leads.id });
+
+    const leadId = lead?.id ?? (
+      await db.query.leads.findFirst({
+        where: and(
+          eq(leads.organizationId, organizationId),
+          eq(leads.externalId, from),
+        ),
+        columns: { id: true },
+      })
+    )?.id;
+
+    if (!leadId) return;
+
+    const [newThread] = await db
+      .insert(outreachThreads)
+      .values({
+        organizationId,
+        leadId,
+        channel: "whatsapp",
+        status: "replied",
+        externalThreadId: from,
+        lastInboundAt: new Date(),
+        lastMessageAt: new Date(),
+      })
+      .returning();
+
+    if (!newThread) return;
+    thread = newThread;
+  }
 
   const [inserted] = await db
     .insert(outreachMessages)
