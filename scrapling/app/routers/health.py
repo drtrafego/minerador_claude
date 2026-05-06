@@ -19,3 +19,24 @@ async def health() -> dict:
         "scrapling_version": scrapling_version,
         "uptime_s": round(time.time() - _BOOT, 2),
     }
+
+
+@router.get("/debug/imports")
+async def debug_imports() -> dict:
+    results = {}
+    checks = [
+        ("playwright", "import playwright"),
+        ("patchright", "import patchright"),
+        ("curl_cffi", "import curl_cffi"),
+        ("browserforge", "import browserforge"),
+        ("camoufox", "import camoufox"),
+        ("AsyncDynamicSession", "from scrapling.fetchers import AsyncDynamicSession"),
+        ("AsyncStealthySession", "from scrapling.fetchers import AsyncStealthySession"),
+    ]
+    for name, stmt in checks:
+        try:
+            exec(stmt)
+            results[name] = "ok"
+        except Exception as e:
+            results[name] = str(e)
+    return {"ok": True, "imports": results}
