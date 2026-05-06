@@ -36,7 +36,8 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
     if status and status >= 400:
         raise UpstreamError(f"duckduckgo http {status}")
 
-    html = getattr(page, "body", None) or str(page)
+    raw = getattr(page, "body", None) or str(page)
+    html = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
     seen: dict[str, LinkedInProfile] = {}
 
     for match in LINKEDIN_URL_RE.finditer(html):

@@ -40,7 +40,8 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
     if status and status >= 400:
         raise UpstreamError(f"duckduckgo http {status}")
 
-    html = getattr(page, "body", None) or str(page)
+    raw = getattr(page, "body", None) or str(page)
+    html = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
     usernames = _extract_usernames(html, max_results)
 
     leads: list[IgLead] = []
