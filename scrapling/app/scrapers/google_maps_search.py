@@ -37,7 +37,6 @@ async def search(query: str, location: str | None, max_results: int) -> list[Pla
                 url,
                 network_idle=True,
                 timeout=60000,
-                wait_selector="div[role='feed']",
                 page_action=_scroll_feed,
             )
     except Exception as exc:

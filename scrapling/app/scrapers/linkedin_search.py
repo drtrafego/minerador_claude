@@ -18,14 +18,13 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
     search_query = f'site:linkedin.com/in "{query}"'
     if location:
         search_query = f'site:linkedin.com/in "{query}" "{location}"'
-    google_url = f"https://www.google.com/search?q={quote_plus(search_query)}&num={min(max_results * 2, 100)}"
+    search_url = f"https://duckduckgo.com/?q={quote_plus(search_query)}&kp=-1&kl=br-pt"
 
     try:
         async with AsyncStealthySession(headless=True) as session:
             page = await session.fetch(
-                google_url,
-                solve_cloudflare=True,
-                wait_selector="div",
+                search_url,
+                wait_selector="a",
                 network_idle=True,
             )
     except Exception as exc:
@@ -33,9 +32,9 @@ async def search(query: str, max_results: int, location: str | None = None) -> l
 
     status = getattr(page, "status", None)
     if status in (429, 503):
-        raise BlockedError("google rate limit/block")
+        raise BlockedError("duckduckgo rate limit/block")
     if status and status >= 400:
-        raise UpstreamError(f"google http {status}")
+        raise UpstreamError(f"duckduckgo http {status}")
 
     html = getattr(page, "body", None) or str(page)
     seen: dict[str, LinkedInProfile] = {}

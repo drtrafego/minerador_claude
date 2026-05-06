@@ -22,14 +22,13 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
     else:
         dork = f'site:instagram.com "{search_term}"'
 
-    google_url = f"https://www.google.com/search?q={quote_plus(dork)}&num={min(max_results * 3, 50)}"
+    search_url = f"https://duckduckgo.com/?q={quote_plus(dork)}&kp=-1&kl=br-pt"
 
     try:
         async with AsyncStealthySession(headless=True) as session:
             page = await session.fetch(
-                google_url,
-                solve_cloudflare=True,
-                wait_selector="div#search",
+                search_url,
+                wait_selector="a",
                 network_idle=True,
             )
     except Exception as exc:
@@ -37,9 +36,9 @@ async def search(search_term: str, search_type: str, max_results: int) -> list[I
 
     status = getattr(page, "status", None)
     if status in (429, 503):
-        raise BlockedError("google rate limit")
+        raise BlockedError("duckduckgo rate limit")
     if status and status >= 400:
-        raise UpstreamError(f"google http {status}")
+        raise UpstreamError(f"duckduckgo http {status}")
 
     html = getattr(page, "body", None) or str(page)
     usernames = _extract_usernames(html, max_results)
